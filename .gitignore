@@ -1,7 +1,3 @@
-node_modules/
-temp/
-logs/
+.idea
 .DS_Store
-src/config/private.pem
-src/config/public.pem
 .env
