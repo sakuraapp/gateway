@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/sakuraapp/gateway/config"
 	"github.com/sakuraapp/gateway/server"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -24,12 +27,30 @@ func main() {
 
 	allowedOrigins := strings.Split(strings.ToLower(os.Getenv("ALLOWED_ORIGINS")), ", ")
 
-	jwtPublicPath := os.Getenv("JWT_PUBLIC_KEY")
+	redisAddr := os.Getenv("REDIS_ADDR")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisDatabase := os.Getenv("REDIS_DATABASE")
+	redisDb, err := strconv.Atoi(redisDatabase)
 
-	s := server.New(server.Config{
+	if err != nil {
+		redisDb = 0
+	}
+
+	jwtPublicPath := os.Getenv("JWT_PUBLIC_KEY")
+	nodeId := os.Getenv("NODE_ID")
+
+	if nodeId == "" {
+		nodeId = uuid.NewString()
+	}
+
+	s := server.New(config.Config{
 		Port:           port,
+		NodeId: nodeId,
 		AllowedOrigins: allowedOrigins,
 		JWTPublicPath: jwtPublicPath,
+		RedisAddr: redisAddr,
+		RedisPassword: redisPassword,
+		RedisDatabase: redisDb,
 	})
 
 	if err := s.Start(); err != nil {

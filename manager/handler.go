@@ -1,14 +1,14 @@
-package managers
+package manager
 
 import (
 	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/resources"
-	"github.com/sakuraapp/shared/resources/opcodes"
+	"github.com/sakuraapp/shared/resource"
+	"github.com/sakuraapp/shared/resource/opcode"
 )
 
-type HandlerFunc func(packet *resources.Packet, client *client.Client)
+type HandlerFunc func(packet *resource.Packet, client *client.Client)
 type HandlerList []HandlerFunc
-type HandlerMap map[opcodes.Opcode]HandlerList
+type HandlerMap map[opcode.Opcode]HandlerList
 
 type HandlerManager struct {
 	handlers HandlerMap
@@ -20,7 +20,7 @@ func NewHandlerManager() *HandlerManager {
 	}
 }
 
-func (h *HandlerManager) Register(op opcodes.Opcode, fn HandlerFunc)  {
+func (h *HandlerManager) Register(op opcode.Opcode, fn HandlerFunc)  {
 	if h.handlers[op] == nil {
 		h.handlers[op] = HandlerList{fn}
 	} else {
@@ -28,7 +28,7 @@ func (h *HandlerManager) Register(op opcodes.Opcode, fn HandlerFunc)  {
 	}
 }
 
-func (h *HandlerManager) Handle(packet *resources.Packet, client *client.Client) {
+func (h *HandlerManager) Handle(packet *resource.Packet, client *client.Client) {
 	list := h.handlers[packet.Opcode]
 
 	if list != nil {

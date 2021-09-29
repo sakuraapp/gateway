@@ -1,4 +1,4 @@
-package managers
+package manager
 
 import (
 	"github.com/sakuraapp/gateway/client"
