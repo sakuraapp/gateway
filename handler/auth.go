@@ -3,12 +3,11 @@ package handler
 import (
 	"fmt"
 	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/pkg"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 )
-
-const sessionFmt = "session.%v"
 
 type AuthResponseData struct {
 	SessionId string `json:"sessionId" msgpack:"sessionId"`
@@ -42,7 +41,10 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		return
 	}
 
+	nodeId := h.app.NodeId()
 	rdb := h.app.GetRedis()
+
+	pipe := rdb.Pipeline()
 	iSessionId := data["sessionId"]
 
 	var s *client.Session
@@ -50,10 +52,14 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 
 	if iSessionId != nil {
 		sessionId := iSessionId.(string)
-		key = fmt.Sprintf(sessionFmt, sessionId)
-		err = rdb.HGetAll(ctx, key).Scan(s)
+		var sess client.Session
+
+		key = fmt.Sprintf(client.SessionFmt, sessionId)
+		err = rdb.HGetAll(ctx, key).Scan(&sess)
 
 		if err == nil {
+			s = &sess
+
 			if user.Id != s.UserId {
 				h.handleAuthFail(
 					fmt.Errorf("session hijack attempted: session owner %v - target user %v", s.UserId, user.Id),
@@ -65,9 +71,13 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			s.Id = sessionId
 			c.Session = s
 
-			rdb.Persist(ctx, key)
+			pipe.Persist(ctx, key)
 
-			if s.RoomId.Valid {
+			if s.NodeId != nodeId {
+				pipe.HSet(ctx, key, "node_id", nodeId)
+			}
+
+			if s.RoomId != 0 {
 				h.HandleJoinRoom(
 					&resource.Packet{
 						Opcode: opcode.JOIN_ROOM,
@@ -78,15 +88,33 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			}
 		} else {
 			s = nil
+			fmt.Printf("%v\n", err)
 		}
  	}
 
  	if s == nil {
-		s = c.CreateSession(user.Id)
-		key = fmt.Sprintf(sessionFmt, s.Id)
+ 		s = client.NewSession(user.Id, nodeId)
+		c.Session = s
 
-		rdb.HSet(ctx, key, s)
+		sMap := map[string]interface{}{
+			"user_id": user.Id,
+			"room_id": s.RoomId,
+			"node_id": nodeId,
+		}
+
+		key = fmt.Sprintf(client.SessionFmt, s.Id)
+
+		pipe.HSet(ctx, key, sMap)
  	}
+
+	userSessionsKey := fmt.Sprintf(pkg.UserSessionsFmt, user.Id)
+	pipe.SAdd(ctx, userSessionsKey, s.Id)
+
+	_, err = pipe.Exec(ctx)
+
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("User: %+v\n", user)
 
@@ -95,4 +123,13 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	if err != nil {
 		h.handleAuthFail(err, c)
 	}
+
+	h.app.Dispatch(resource.ServerMessage{
+		Type: resource.NORMAL_MESSAGE,
+		Target: resource.MessageTarget{
+			UserIds: map[model.UserId]bool{1: true, 2: true},
+		},
+		Data: resource.Packet{},
+		Origin: "abcd",
+	})
 }

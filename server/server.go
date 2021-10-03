@@ -22,6 +22,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 )
 
@@ -30,6 +31,7 @@ type Server struct {
 	cors *cors.Cors
 	server *nbhttp.Server
 	ctx context.Context
+	ctxCancel context.CancelFunc
 	jwt *pkg.JWT
 	db *pg.DB
 	rdb *redis.Client
@@ -37,7 +39,7 @@ type Server struct {
 	cache *cache.Cache
 	clients *manager.ClientManager
 	handlers *manager.HandlerManager
-	dispatcher *Dispatcher
+	pubsub *redis.PubSub
 }
 
 func New(conf config.Config) *Server {
@@ -57,7 +59,7 @@ func New(conf config.Config) *Server {
 	}
 
 	db := pg.Connect(&dbOpts)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	db.AddQueryHook(pgdebug.DebugHook{
 		// Print all queries.
@@ -88,6 +90,7 @@ func New(conf config.Config) *Server {
 		Config:   conf,
 		cors:     c,
 		ctx:  	  context.Background(),
+		ctxCancel: cancel,
 		jwt:      &pkg.JWT{PublicKey: jwtPublicKey},
 		db:       db,
 		rdb:      rdb,
@@ -96,6 +99,8 @@ func New(conf config.Config) *Server {
 		clients:  manager.NewClientManager(),
 		handlers: manager.NewHandlerManager(),
 	}
+
+	s.initPubsub()
 
 	handler.Init(s)
 
@@ -116,6 +121,10 @@ func New(conf config.Config) *Server {
 
 func (s *Server) Context() context.Context {
 	return s.ctx
+}
+
+func (s *Server) NodeId() string {
+	return s.Config.NodeId
 }
 
 func (s *Server) GetConfig() *config.Config {
@@ -153,19 +162,29 @@ func (s *Server) GetClientMgr() *manager.ClientManager {
 func (s *Server) Start() error {
 	err := s.server.Start()
 
+	go s.clients.StartTicker()
+	defer s.clients.StopTicker()
+
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Server is listening on port %v\n", s.Port)
 
-	defer s.server.Stop()
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
 
-	// block
-	ticker := time.NewTicker(time.Second)
+	<-interrupt
 
-	for i := 1; true; i++ {
-		<-ticker.C
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second * 5)
+
+	// defer cancel()
+	defer s.ctxCancel()
+
+	err = s.server.Shutdown(s.ctx)
+
+	if err != nil {
+		panic(err)
 	}
 
 	return nil
@@ -188,14 +207,21 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsConn := conn.(*websocket.Conn)
-	client := client.NewClient(s.ctx, wsConn, u)
+	c := client.NewClient(s.ctx, wsConn, u)
 
-	s.clients.Add(client)
+	s.clients.Add(c)
 
-	u.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
+	u.OnMessage(func(conn *websocket.Conn, messageType websocket.MessageType, data []byte) {
+		c.LastActive = time.Now()
+		err = conn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+
+		if err != nil {
+			panic(err)
+		}
+
 		var packet resource.Packet
 
-		err := json.Unmarshal(data, &packet)
+		err = json.Unmarshal(data, &packet)
 
 		if err != nil {
 			fmt.Printf("Invalid Packet: %v\n", string(data))
@@ -203,10 +229,51 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Printf("OnMessage: %+v\n", packet)
-		s.handlers.Handle(&packet, client)
+		s.handlers.Handle(&packet, c)
 	})
 
+	u.SetPongHandler(func(conn *websocket.Conn, s string) {
+		c.LastActive = time.Now()
+		err = conn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+
+		if err != nil {
+			panic(err)
+		}
+	})
+
+	err = wsConn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+
+	if err != nil {
+		panic(err)
+	}
+
 	wsConn.OnClose(func(conn *websocket.Conn, err error) {
-		s.clients.Remove(client)
+		s.clients.Remove(c)
+
+		if err != nil {
+			fmt.Printf("Socket Closed: %v\n", err)
+		}
+
+		session := c.Session
+
+		if session != nil {
+			ctx := c.Context()
+			rdb := s.rdb
+			pipe := rdb.Pipeline()
+
+			userSessionsKey := fmt.Sprintf(pkg.UserSessionsFmt, session.UserId)
+			sessionKey := fmt.Sprintf(client.SessionFmt, session.Id)
+
+			// todo: remove from room
+
+			pipe.SRem(ctx, userSessionsKey, session.Id)
+			pipe.Expire(ctx, sessionKey, client.SessionExpiryDuration)
+
+			_, err = pipe.Exec(ctx)
+
+			if err != nil {
+				panic(err)
+			}
+		}
 	})
 }

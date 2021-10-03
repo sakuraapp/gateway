@@ -8,10 +8,14 @@ import (
 	"github.com/sakuraapp/gateway/config"
 	"github.com/sakuraapp/gateway/manager"
 	"github.com/sakuraapp/gateway/repository"
+	"github.com/sakuraapp/shared/resource"
 )
+
+const UserSessionsFmt = "user_sessions.%v"
 
 type App interface {
 	Context() context.Context
+	NodeId() string
 	GetConfig() *config.Config
 	GetJWT() *JWT
 	GetDB() *pg.DB
@@ -20,4 +24,6 @@ type App interface {
 	GetCache() *cache.Cache
 	GetHandlerMgr() *manager.HandlerManager
 	GetClientMgr() *manager.ClientManager
+	Dispatch(msg resource.ServerMessage) error
+	DispatchLocal(msg resource.ServerMessage)
 }
