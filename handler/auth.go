@@ -3,7 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/pkg"
+	"github.com/sakuraapp/gateway/internal"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
@@ -107,7 +107,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		pipe.HSet(ctx, key, sMap)
  	}
 
-	userSessionsKey := fmt.Sprintf(pkg.UserSessionsFmt, user.Id)
+	userSessionsKey := fmt.Sprintf(internal.UserSessionsFmt, user.Id)
 	pipe.SAdd(ctx, userSessionsKey, s.Id)
 
 	_, err = pipe.Exec(ctx)

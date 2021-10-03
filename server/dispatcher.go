@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/pkg"
+	"github.com/sakuraapp/gateway/internal"
 	"github.com/sakuraapp/shared/resource"
 )
 
@@ -44,7 +44,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 		locNodeId := s.NodeId()
 
 		for userId := range msg.Target.UserIds {
-			pipe.SMembers(s.ctx, fmt.Sprintf(pkg.UserSessionsFmt, userId))
+			pipe.SMembers(s.ctx, fmt.Sprintf(internal.UserSessionsFmt, userId))
 		}
 
 		results, err := pipe.Exec(s.ctx)

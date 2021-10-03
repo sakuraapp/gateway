@@ -15,7 +15,7 @@ import (
 	"github.com/sakuraapp/gateway/config"
 	"github.com/sakuraapp/gateway/handler"
 	"github.com/sakuraapp/gateway/manager"
-	"github.com/sakuraapp/gateway/pkg"
+	"github.com/sakuraapp/gateway/internal"
 	"github.com/sakuraapp/gateway/repository"
 	shared "github.com/sakuraapp/shared/pkg"
 	"github.com/sakuraapp/shared/resource"
@@ -32,7 +32,7 @@ type Server struct {
 	server *nbhttp.Server
 	ctx context.Context
 	ctxCancel context.CancelFunc
-	jwt *pkg.JWT
+	jwt *internal.JWT
 	db *pg.DB
 	rdb *redis.Client
 	repos *repository.Repositories
@@ -91,7 +91,7 @@ func New(conf config.Config) *Server {
 		cors:     c,
 		ctx:  	  context.Background(),
 		ctxCancel: cancel,
-		jwt:      &pkg.JWT{PublicKey: jwtPublicKey},
+		jwt:      &internal.JWT{PublicKey: jwtPublicKey},
 		db:       db,
 		rdb:      rdb,
 		cache:    myCache,
@@ -131,7 +131,7 @@ func (s *Server) GetConfig() *config.Config {
 	return &s.Config
 }
 
-func (s *Server) GetJWT() *pkg.JWT {
+func (s *Server) GetJWT() *internal.JWT {
 	return s.jwt
 }
 
@@ -261,7 +261,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			rdb := s.rdb
 			pipe := rdb.Pipeline()
 
-			userSessionsKey := fmt.Sprintf(pkg.UserSessionsFmt, session.UserId)
+			userSessionsKey := fmt.Sprintf(internal.UserSessionsFmt, session.UserId)
 			sessionKey := fmt.Sprintf(client.SessionFmt, session.Id)
 
 			// todo: remove from room
