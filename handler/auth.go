@@ -3,10 +3,11 @@ package handler
 import (
 	"fmt"
 	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/internal"
+	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
+	"strconv"
 )
 
 type AuthResponseData struct {
@@ -54,7 +55,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		sessionId := iSessionId.(string)
 		var sess client.Session
 
-		key = fmt.Sprintf(client.SessionFmt, sessionId)
+		key = fmt.Sprintf(constant.SessionFmt, sessionId)
 		err = rdb.HGetAll(ctx, key).Scan(&sess)
 
 		if err == nil {
@@ -81,7 +82,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				h.HandleJoinRoom(
 					&resource.Packet{
 						Opcode: opcode.JOIN_ROOM,
-						Data: s.RoomId,
+						Data: strconv.Itoa(int(s.RoomId)),
 					},
 					c,
 				)
@@ -102,12 +103,12 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			"node_id": nodeId,
 		}
 
-		key = fmt.Sprintf(client.SessionFmt, s.Id)
+		key = fmt.Sprintf(constant.SessionFmt, s.Id)
 
 		pipe.HSet(ctx, key, sMap)
  	}
 
-	userSessionsKey := fmt.Sprintf(internal.UserSessionsFmt, user.Id)
+	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, user.Id)
 	pipe.SAdd(ctx, userSessionsKey, s.Id)
 
 	_, err = pipe.Exec(ctx)
@@ -123,13 +124,26 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	if err != nil {
 		h.handleAuthFail(err, c)
 	}
+}
 
-	h.app.Dispatch(resource.ServerMessage{
-		Type: resource.NORMAL_MESSAGE,
-		Target: resource.MessageTarget{
-			UserIds: map[model.UserId]bool{1: true, 2: true},
-		},
-		Data: resource.Packet{},
-		Origin: "abcd",
-	})
+func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
+	h.removeClient(c, false)
+
+	session := c.Session
+
+	ctx := c.Context()
+	rdb := h.app.GetRedis()
+	pipe := rdb.Pipeline()
+
+	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, session.UserId)
+	sessionKey := fmt.Sprintf(constant.SessionFmt, session.Id)
+
+	pipe.SRem(ctx, userSessionsKey, session.Id)
+	pipe.Expire(ctx, sessionKey, client.SessionExpiryDuration)
+
+	_, err := pipe.Exec(ctx)
+
+	if err != nil {
+		panic(err)
+	}
 }

@@ -7,6 +7,7 @@ import (
 
 type Repositories struct {
 	User *UserRepository
+	Room *RoomRepository
 }
 
 func Init(db *pg.DB, cache *cache.Cache) *Repositories {
@@ -15,5 +16,6 @@ func Init(db *pg.DB, cache *cache.Cache) *Repositories {
 			db: db,
 			cache: cache,
 		},
+		Room: &RoomRepository{db: db},
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-const SessionFmt = "session.%v"
 const SessionExpiryDuration = 15 * time.Minute
 
 type Session struct {

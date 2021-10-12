@@ -14,11 +14,12 @@ import (
 	"github.com/sakuraapp/gateway/client"
 	"github.com/sakuraapp/gateway/config"
 	"github.com/sakuraapp/gateway/handler"
-	"github.com/sakuraapp/gateway/manager"
 	"github.com/sakuraapp/gateway/internal"
+	"github.com/sakuraapp/gateway/manager"
 	"github.com/sakuraapp/gateway/repository"
 	shared "github.com/sakuraapp/shared/pkg"
 	"github.com/sakuraapp/shared/resource"
+	"github.com/sakuraapp/shared/resource/opcode"
 	"log"
 	"net/http"
 	"os"
@@ -39,6 +40,8 @@ type Server struct {
 	cache *cache.Cache
 	clients *manager.ClientManager
 	handlers *manager.HandlerManager
+	rooms *manager.RoomManager
+	subscriptions *manager.SubscriptionManager
 	pubsub *redis.PubSub
 }
 
@@ -102,6 +105,9 @@ func New(conf config.Config) *Server {
 
 	s.initPubsub()
 
+	s.subscriptions = manager.NewSubscriptionManager(s.ctx, s.pubsub)
+	s.rooms = manager.NewRoomManager(s.subscriptions)
+
 	handler.Init(s)
 
 	mux := &http.ServeMux{}
@@ -159,6 +165,10 @@ func (s *Server) GetClientMgr() *manager.ClientManager {
 	return s.clients
 }
 
+func (s *Server) GetRoomMgr() *manager.RoomManager {
+	return s.rooms
+}
+
 func (s *Server) Start() error {
 	err := s.server.Start()
 
@@ -181,6 +191,7 @@ func (s *Server) Start() error {
 	// defer cancel()
 	defer s.ctxCancel()
 
+	fmt.Println("Shutting down...")
 	err = s.server.Shutdown(s.ctx)
 
 	if err != nil {
@@ -228,6 +239,10 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if packet.Opcode == opcode.DISCONNECT {
+			return // opcode not allowed
+		}
+
 		fmt.Printf("OnMessage: %+v\n", packet)
 		s.handlers.Handle(&packet, c)
 	})
@@ -257,23 +272,9 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		session := c.Session
 
 		if session != nil {
-			ctx := c.Context()
-			rdb := s.rdb
-			pipe := rdb.Pipeline()
+			disconnectPacket := resource.BuildPacket(opcode.DISCONNECT, nil)
 
-			userSessionsKey := fmt.Sprintf(internal.UserSessionsFmt, session.UserId)
-			sessionKey := fmt.Sprintf(client.SessionFmt, session.Id)
-
-			// todo: remove from room
-
-			pipe.SRem(ctx, userSessionsKey, session.Id)
-			pipe.Expire(ctx, sessionKey, client.SessionExpiryDuration)
-
-			_, err = pipe.Exec(ctx)
-
-			if err != nil {
-				panic(err)
-			}
+			s.handlers.Handle(&disconnectPacket, c)
 		}
 	})
 }

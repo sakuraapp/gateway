@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
-	"gopkg.in/guregu/null.v4"
 	"time"
 )
 
@@ -40,17 +40,15 @@ func (c *Client) Write(packet resource.Packet) error {
 		return err
 	}
 
+	fmt.Printf("OnWrite: %+v\n", packet)
+
 	return nil
 }
 
 func (c *Client) Send(op opcode.Opcode, data interface{}) error {
-	t := time.Now().UnixNano() / 1000000
+	packet := resource.BuildPacket(op, data)
 
-	return c.Write(resource.Packet{
-		Opcode: op,
-		Data: data,
-		Time: null.IntFrom(t),
-	})
+	return c.Write(packet)
 }
 
 func (c *Client) Disconnect() {

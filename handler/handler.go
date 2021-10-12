@@ -14,4 +14,7 @@ func Init(app internal.App) {
 	m := app.GetHandlerMgr()
 
 	m.Register(opcode.AUTHENTICATE, h.HandleAuth)
+	m.Register(opcode.DISCONNECT, h.HandleDisconnect)
+	m.Register(opcode.JOIN_ROOM, h.HandleJoinRoom)
+	m.Register(opcode.LEAVE_ROOM, h.HandleLeaveRoom)
 }

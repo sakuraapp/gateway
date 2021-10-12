@@ -43,3 +43,15 @@ func (u *UserRepository) FetchWithDiscriminator(id model.UserId) (*model.User, e
 
 	return user, err
 }
+
+func (u *UserRepository) GetUsersWithDiscriminators(ids []model.UserId) ([]model.User, error) {
+	var users []model.User
+	err := u.db.Model(&users).
+		Column("user.*").
+		ColumnExpr("discriminator.value AS discriminator").
+		Join("LEFT JOIN discriminators AS discriminator ON discriminator.owner_id = ?", pg.Ident("user.id")).
+		Where("? in (?)", pg.Ident("user.id"), pg.In(ids)).
+		Select()
+
+	return users, err
+}
