@@ -39,6 +39,7 @@ type Server struct {
 	repos *repository.Repositories
 	cache *cache.Cache
 	clients *manager.ClientManager
+	sessions *manager.SessionManager
 	handlers *manager.HandlerManager
 	rooms *manager.RoomManager
 	subscriptions *manager.SubscriptionManager
@@ -100,6 +101,7 @@ func New(conf config.Config) *Server {
 		cache:    myCache,
 		repos: 	  repos,
 		clients:  manager.NewClientManager(),
+		sessions: manager.NewSessionManager(),
 		handlers: manager.NewHandlerManager(),
 	}
 
@@ -163,6 +165,10 @@ func (s *Server) GetHandlerMgr() *manager.HandlerManager {
 
 func (s *Server) GetClientMgr() *manager.ClientManager {
 	return s.clients
+}
+
+func (s *Server) GetSessionMgr() *manager.SessionManager {
+	return s.sessions
 }
 
 func (s *Server) GetRoomMgr() *manager.RoomManager {

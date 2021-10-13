@@ -77,16 +77,6 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			if s.NodeId != nodeId {
 				pipe.HSet(ctx, key, "node_id", nodeId)
 			}
-
-			if s.RoomId != 0 {
-				h.HandleJoinRoom(
-					&resource.Packet{
-						Opcode: opcode.JOIN_ROOM,
-						Data: strconv.Itoa(int(s.RoomId)),
-					},
-					c,
-				)
-			}
 		} else {
 			s = nil
 			fmt.Printf("%v\n", err)
@@ -108,6 +98,8 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		pipe.HSet(ctx, key, sMap)
  	}
 
+ 	h.app.GetSessionMgr().Add(s)
+
 	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, user.Id)
 	pipe.SAdd(ctx, userSessionsKey, s.Id)
 
@@ -123,6 +115,16 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 
 	if err != nil {
 		h.handleAuthFail(err, c)
+	}
+
+	if s.RoomId != 0 {
+		h.HandleJoinRoom(
+			&resource.Packet{
+				Opcode: opcode.JOIN_ROOM,
+				Data: strconv.Itoa(int(s.RoomId)),
+			},
+			c,
+		)
 	}
 }
 

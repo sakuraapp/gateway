@@ -23,6 +23,7 @@ type App interface {
 	GetCache() *cache.Cache
 	GetHandlerMgr() *manager.HandlerManager
 	GetClientMgr() *manager.ClientManager
+	GetSessionMgr() *manager.SessionManager
 	GetRoomMgr() *manager.RoomManager
 	Dispatch(msg resource.ServerMessage) error
 	DispatchLocal(msg resource.ServerMessage) error
