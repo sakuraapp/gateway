@@ -317,6 +317,14 @@ github.com/sakuraapp/shared v0.0.0-20211010095046-91b35601be62 h1:HATR62y1HI8yG3
 github.com/sakuraapp/shared v0.0.0-20211010095046-91b35601be62/go.mod h1:k4P28es6kIk9RvLxnmkwUzRTVHMX1y8t0GoXb7CE2Y4=
 github.com/sakuraapp/shared v0.0.0-20211010095715-56e73823bb04 h1:oDmyYiLRS2xIV0YeEzIBpEjPs06/DcM2AEJtntloI0Y=
 github.com/sakuraapp/shared v0.0.0-20211010095715-56e73823bb04/go.mod h1:k4P28es6kIk9RvLxnmkwUzRTVHMX1y8t0GoXb7CE2Y4=
+github.com/sakuraapp/shared v0.0.0-20211013154748-6d506ee15acf h1:6Xv2ysUri0uG1AOl0B/aHSFZXEm/4cSpDxMSnsDNBis=
+github.com/sakuraapp/shared v0.0.0-20211013154748-6d506ee15acf/go.mod h1:r3/uM6RXW4ChlcbJruH+2YZWZ0XxdI3In8zD5GOYBos=
+github.com/sakuraapp/shared v0.0.0-20211013155150-fe5aba76a2bc h1:dWDNk3+2KbdLCKIjffiLaucL1fwazSGt0UvAUk1Vkbg=
+github.com/sakuraapp/shared v0.0.0-20211013155150-fe5aba76a2bc/go.mod h1:r3/uM6RXW4ChlcbJruH+2YZWZ0XxdI3In8zD5GOYBos=
+github.com/sakuraapp/shared v0.0.0-20211013165245-0867857b8d8b h1:z+8Kb9xfDv6PqMwJGR3gQfU2lElSNocJz3fKZISazIM=
+github.com/sakuraapp/shared v0.0.0-20211013165245-0867857b8d8b/go.mod h1:r3/uM6RXW4ChlcbJruH+2YZWZ0XxdI3In8zD5GOYBos=
+github.com/sakuraapp/shared v0.0.0-20211013171131-ea6b11391923 h1:EpW4o829zPNzKKhjHbMufuSs4wpeBo2v0ab1utCszic=
+github.com/sakuraapp/shared v0.0.0-20211013171131-ea6b11391923/go.mod h1:r3/uM6RXW4ChlcbJruH+2YZWZ0XxdI3In8zD5GOYBos=
 github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0XIa01GRL2eRQVjQkKGqKF3SF9vZR/HnPullcV2E=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=

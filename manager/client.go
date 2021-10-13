@@ -15,13 +15,13 @@ const (
 type ClientManager struct {
 	stopCh chan struct{}
 	mu sync.Mutex
-	clients map[*client.Client]bool
+	clients map[string]*client.Client
 }
 
 func NewClientManager() *ClientManager {
 	return &ClientManager{
 		stopCh: make(chan struct{}),
-		clients: map[*client.Client]bool{},
+		clients: map[string]*client.Client{},
 	}
 }
 
@@ -29,7 +29,7 @@ func (m *ClientManager) Mutex() *sync.Mutex {
 	return &m.mu
 }
 
-func (m *ClientManager) Clients() map[*client.Client]bool {
+func (m *ClientManager) Clients() map[string]*client.Client {
 	return m.clients
 }
 
@@ -37,14 +37,24 @@ func (m *ClientManager) Add(c *client.Client) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.clients[c] = true
+	m.clients[c.Session.Id] = c
 }
 
-func (m *ClientManager) Remove(c *client.Client)  {
+func (m *ClientManager) Remove(c *client.Client) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	delete(m.clients, c)
+	delete(m.clients, c.Session.Id)
+}
+
+func (m *ClientManager) UpdateSession(c *client.Client, session *client.Session) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.clients, c.Session.Id)
+
+	c.Session = session
+	m.clients[session.Id] = c
 }
 
 func (m *ClientManager) StartTicker() {
@@ -62,7 +72,7 @@ func (m *ClientManager) StartTicker() {
 				mustActive := time.Now().Add(-keepAliveTime)
 				nPing := 0
 
-				for c := range m.clients {
+				for _, c := range m.clients {
 					lastActive := c.LastActive
 
 					if lastActive.Before(mustActive) {

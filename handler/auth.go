@@ -48,8 +48,8 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	pipe := rdb.Pipeline()
 	iSessionId := data["sessionId"]
 
-	var s *client.Session
 	var key string
+	s := c.Session
 
 	if iSessionId != nil {
 		sessionId := iSessionId.(string)
@@ -70,7 +70,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			}
 
 			s.Id = sessionId
-			c.Session = s
+			h.app.GetClientMgr().UpdateSession(c, s)
 
 			pipe.Persist(ctx, key)
 
@@ -78,14 +78,12 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				pipe.HSet(ctx, key, "node_id", nodeId)
 			}
 		} else {
-			s = nil
 			fmt.Printf("%v\n", err)
 		}
  	}
 
- 	if s == nil {
- 		s = client.NewSession(user.Id, nodeId)
-		c.Session = s
+ 	if s.UserId == 0 {
+		s.UserId = userId
 
 		sMap := map[string]interface{}{
 			"user_id": user.Id,

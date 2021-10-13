@@ -9,26 +9,48 @@ import (
 )
 
 func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
-	mgr := s.clients
-	clients := mgr.Clients()
-	mu := mgr.Mutex()
+	clientMgr := s.clients
+	sessMgr := s.sessions
+
+	clients := clientMgr.Clients()
+	mu := clientMgr.Mutex()
 
 	mu.Lock()
 	defer mu.Unlock()
 
-	for c := range clients {
-		session := c.Session
+	ignoredSessions := msg.Target.IgnoredSessionIds
 
-		if session != nil {
-			isBroadcast := msg.Type == resource.BROADCAST_MESSAGE
-			isTargeted := msg.Type == resource.NORMAL_MESSAGE && msg.Target.UserIds[session.UserId]
-			isIgnored := msg.Target.IgnoredSessionIds[session.Id]
+	switch msg.Type {
+	case resource.BROADCAST_MESSAGE:
+		for _, c := range clients {
+			session := c.Session
 
-			if !isIgnored && (isBroadcast || isTargeted) {
-				err := c.Write(msg.Data)
+			if session != nil {
+				isIgnored := ignoredSessions[session.Id]
 
-				if err != nil {
-					return err
+				if !isIgnored {
+					err := c.Write(msg.Data)
+
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	case resource.NORMAL_MESSAGE:
+		for userId := range msg.Target.UserIds {
+			sessionIds := sessMgr.GetByUserId(userId)
+
+			for sessionId := range sessionIds {
+				isIgnored := ignoredSessions[sessionId]
+				c := clients[sessionId]
+
+				if !isIgnored && c != nil {
+					err := c.Write(msg.Data)
+
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -38,6 +60,8 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 }
 
 func (s *Server) Dispatch(msg resource.ServerMessage) error {
+	msg.Origin = s.NodeId()
+
 	if msg.Type == resource.BROADCAST_MESSAGE {
 		err := s.DispatchLocal(msg)
 
@@ -131,6 +155,7 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 }
 
 func (s *Server) DispatchRoom(roomId model.RoomId, msg resource.ServerMessage) error {
+	msg.Origin = s.NodeId()
 	err := s.DispatchRoomLocal(roomId, msg)
 
 	if err != nil {
@@ -138,5 +163,6 @@ func (s *Server) DispatchRoom(roomId model.RoomId, msg resource.ServerMessage) e
 	}
 
 	roomKey := fmt.Sprintf(constant.RoomFmt, roomId)
+
 	return s.rdb.Publish(s.ctx, roomKey, msg).Err()
 }

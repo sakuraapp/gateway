@@ -125,6 +125,10 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 	users, err := h.app.GetRepos().User.GetUsersWithDiscriminators(userIds)
 
+	if err != nil {
+		panic(err)
+	}
+
 	addUserMessage := resource.ServerMessage{
 		Data: resource.BuildPacket(opcode.ADD_USER, resource.NewUser(&users[0])),
 		Target: resource.MessageTarget{
