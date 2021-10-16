@@ -95,6 +95,19 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 	c.Session.RoomId = roomId
 
+	m := h.app.GetRoomMgr()
+	r := m.Get(roomId)
+
+	if r == nil {
+		r = m.Create(roomId)
+	}
+
+	err = r.Add(c)
+
+	if err != nil {
+		panic(err)
+	}
+
 	strUserIds, err := rdb.SMembers(ctx, usersKey).Result()
 
 	if err != nil {

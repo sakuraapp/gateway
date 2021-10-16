@@ -58,6 +58,8 @@ func (s *Server) initPubsub() {
 					continue
 				}
 
+				fmt.Printf("Incoming Room Message: [Room: %v] %+v\n", roomId, msg)
+
 				err = s.DispatchRoomLocal(roomId, msg)
 
 				if err != nil {

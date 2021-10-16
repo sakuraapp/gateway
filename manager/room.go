@@ -63,7 +63,10 @@ type RoomManager struct {
 }
 
 func NewRoomManager(subMgr *SubscriptionManager) *RoomManager {
-	return &RoomManager{subMgr: subMgr}
+	return &RoomManager{
+		subMgr: subMgr,
+		rooms: map[model.RoomId]*Room{},
+	}
 }
 
 func (m *RoomManager) Get(roomId model.RoomId) *Room {

@@ -6,6 +6,7 @@ import (
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
@@ -102,6 +103,12 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 			return err
 		}
 
+		bytes, err := msgpack.Marshal(msg)
+
+		if err != nil {
+			return err
+		}
+
 		pipe = s.rdb.Pipeline()
 		nodes := map[string]bool{}
 		var nodeKey string
@@ -116,7 +123,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 					s.DispatchLocal(msg)
 				} else {
 					nodeKey = fmt.Sprintf(constant.GatewayFmt, nodeId)
-					pipe.Publish(s.ctx, nodeKey, msg)
+					pipe.Publish(s.ctx, nodeKey, bytes)
 				}
 			}
 		}
@@ -163,6 +170,11 @@ func (s *Server) DispatchRoom(roomId model.RoomId, msg resource.ServerMessage) e
 	}
 
 	roomKey := fmt.Sprintf(constant.RoomFmt, roomId)
+	bytes, err := msgpack.Marshal(msg)
 
-	return s.rdb.Publish(s.ctx, roomKey, msg).Err()
+	if err != nil {
+		return err
+	}
+
+	return s.rdb.Publish(s.ctx, roomKey, bytes).Err()
 }

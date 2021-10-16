@@ -57,9 +57,9 @@ func New(conf config.Config) *Server {
 	})
 
 	dbOpts := pg.Options{
-		User: os.Getenv("DB_USER"),
-		Password: os.Getenv("DB_PASSWORD"),
-		Database: os.Getenv("DB_DATABASE"),
+		User: conf.DatabaseUser,
+		Password: conf.DatabasePassword,
+		Database: conf.DatabaseName,
 	}
 
 	db := pg.Connect(&dbOpts)
