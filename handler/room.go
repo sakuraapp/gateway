@@ -26,14 +26,15 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	currRoomId := c.Session.RoomId
+	s := c.Session
+	currRoomId := s.RoomId
 	alreadyInRoom := currRoomId == roomId
 
 	if currRoomId != 0 && !alreadyInRoom {
 		h.HandleLeaveRoom(data, c)
 	}
 
-	userId := c.Session.UserId
+	userId := s.UserId
 	strUserId := string(userId)
 
 	ctx := c.Context()
@@ -73,7 +74,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		}
 	}
 
-	sessionId := c.Session.Id
+	sessionId := s.Id
 
 	usersKey := fmt.Sprintf(constant.RoomUsersFmt, roomId)
 	userSessionsKey := fmt.Sprintf(constant.RoomUserSessionsFmt, roomId, userId)
@@ -93,7 +94,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 	fmt.Printf("Join Room: %+v\n", room)
 
-	c.Session.RoomId = roomId
+	s.RoomId = roomId
 
 	m := h.app.GetRoomMgr()
 	r := m.Get(roomId)
@@ -149,17 +150,18 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		},
 	}
 
-	permissions := []permission.Permission{permission.QUEUE_ADD}
+	s.Permissions = permission.QUEUE_ADD
 
 	if userId == room.OwnerId {
-		permissions = append(permissions, permission.QUEUE_EDIT, permission.VIDEO_REMOTE)
+		s.AddPermission(permission.QUEUE_EDIT)
+		s.AddPermission(permission.VIDEO_REMOTE)
 	}
 
 	joinRoomData := map[string]interface{}{
 		"status": 200,
 		"room": resource.NewRoom(room),
 		"users": resource.NewUserList(users),
-		"permissions": permissions,
+		"permissions": s.Permissions,
 	}
 
 	err = h.app.DispatchRoom(roomId, addUserMessage)
