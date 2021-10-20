@@ -33,6 +33,7 @@ type Server struct {
 	server *nbhttp.Server
 	ctx context.Context
 	ctxCancel context.CancelFunc
+	crawler *internal.Crawler
 	jwt *internal.JWT
 	db *pg.DB
 	rdb *redis.Client
@@ -95,6 +96,7 @@ func New(conf config.Config) *Server {
 		cors:     c,
 		ctx:  	  context.Background(),
 		ctxCancel: cancel,
+		crawler:  internal.NewCrawler(),
 		jwt:      &internal.JWT{PublicKey: jwtPublicKey},
 		db:       db,
 		rdb:      rdb,
@@ -137,6 +139,10 @@ func (s *Server) NodeId() string {
 
 func (s *Server) GetConfig() *config.Config {
 	return &s.Config
+}
+
+func (s *Server) GetCrawler() *internal.Crawler {
+	return s.crawler
 }
 
 func (s *Server) GetJWT() *internal.JWT {

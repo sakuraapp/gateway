@@ -17,4 +17,5 @@ func Init(app internal.App) {
 	m.Register(opcode.DISCONNECT, h.HandleDisconnect)
 	m.Register(opcode.JOIN_ROOM, h.HandleJoinRoom)
 	m.Register(opcode.LEAVE_ROOM, h.HandleLeaveRoom)
+	m.Register(opcode.QUEUE_ADD, h.HandleQueueAdd)
 }
