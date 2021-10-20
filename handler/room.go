@@ -58,7 +58,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 					},
 				},
 				Data: resource.Packet{
-					Opcode: opcode.ROOM_JOIN_REQUEST,
+					Opcode: opcode.RoomJoinRequest,
 					Data: userId,
 				},
 			}
@@ -149,7 +149,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	}
 
 	addUserMessage := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.ADD_USER, resource.NewUser(&users[0])),
+		Data: resource.BuildPacket(opcode.AddUser, resource.NewUser(&users[0])),
 		Target: resource.MessageTarget{
 			IgnoredSessionIds: map[string]bool{sessionId: true},
 		},
@@ -175,7 +175,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	err = c.Send(opcode.JOIN_ROOM, joinRoomData)
+	err = c.Send(opcode.JoinRoom, joinRoomData)
 
 	if err != nil {
 		panic(err)
@@ -328,7 +328,7 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
 	}
 
 	queueRemoveMsg := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.QUEUE_REMOVE, item.Id),
+		Data: resource.BuildPacket(opcode.QueueRemove, item.Id),
 	}
 
 	err = h.app.DispatchRoom(roomId, queueRemoveMsg)

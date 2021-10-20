@@ -109,7 +109,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 
 	fmt.Printf("User: %+v\n", user)
 
-	err = c.Send(opcode.AUTHENTICATE, AuthResponseData{SessionId: s.Id})
+	err = c.Send(opcode.Authenticate, AuthResponseData{SessionId: s.Id})
 
 	if err != nil {
 		h.handleAuthFail(err, c)
@@ -118,7 +118,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	if s.RoomId != 0 {
 		h.HandleJoinRoom(
 			&resource.Packet{
-				Opcode: opcode.JOIN_ROOM,
+				Opcode: opcode.JoinRoom,
 				Data: strconv.Itoa(int(s.RoomId)),
 			},
 			c,

@@ -252,7 +252,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if packet.Opcode == opcode.DISCONNECT {
+		if packet.Opcode == opcode.Disconnect {
 			return // opcode not allowed
 		}
 
@@ -286,7 +286,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		session := c.Session
 
 		if session != nil {
-			disconnectPacket := resource.BuildPacket(opcode.DISCONNECT, nil)
+			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
 
 			s.handlers.Handle(&disconnectPacket, c)
 		}
