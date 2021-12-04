@@ -18,4 +18,9 @@ func Init(app internal.App) {
 	m.Register(opcode.JoinRoom, h.HandleJoinRoom)
 	m.Register(opcode.LeaveRoom, h.HandleLeaveRoom)
 	m.Register(opcode.QueueAdd, h.HandleQueueAdd)
+	m.Register(opcode.QueueRemove, h.HandleQueueRemove)
+	m.Register(opcode.PlayerState, h.HandleSetPlayerState)
+	m.Register(opcode.Seek, h.HandleSeek)
+	m.Register(opcode.VideoSkip, h.HandleSkip)
+	m.Register(opcode.VideoEnd, h.HandleVideoEnd)
 }

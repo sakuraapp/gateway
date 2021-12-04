@@ -1,19 +1,14 @@
 package handler
 
 import (
-	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/internal"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
-	"net/url"
 	"strconv"
-	"time"
 )
 
 func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
@@ -181,10 +176,47 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	err = h.sendStateToClient(c)
+	currentItemKey := fmt.Sprintf(constant.RoomCurrentItemFmt, roomId)
+
+	vals, err := rdb.HGetAll(ctx, currentItemKey).Result()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	intAuthor := int64(0)
+
+	if vals["author"] != "" {
+		intAuthor, err = strconv.ParseInt(vals["author"], 10, 64)
+	}
 
 	if err != nil {
 		panic(err)
+	}
+
+	currentItem := resource.MediaItem{
+		Id: vals["id"],
+		Author: model.UserId(intAuthor),
+		MediaItemInfo: &resource.MediaItemInfo{
+			Title: vals["title"],
+			Icon: vals["icon"],
+			Url: vals["url"],
+		},
+	}
+
+	if currentItem.Id != "" {
+		err = c.Send(opcode.VideoSet, currentItem)
+
+		if err != nil {
+			panic(err)
+		}
+
+		err = h.sendStateToClient(c)
+
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -252,181 +284,4 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 
 func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) {
 	h.removeClient(c, true)
-}
-
-func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
-	roomId := c.Session.RoomId
-
-	if roomId == 0 || !c.Session.HasPermission(permission.QUEUE_ADD) {
-		return
-	}
-
-	rawUrl := data.Data.(string)
-	u, err := url.Parse(rawUrl)
-
-	if err != nil {
-		return
-	}
-
-	switch internal.GetDomain(u) {
-	case "youtube.com":
-		videoId := u.Query().Get("v")
-		rawUrl = fmt.Sprintf("https://www.youtube.com/embed/%v", videoId)
-	}
-
-	itemInfo, err := h.app.GetCrawler().Get(rawUrl)
-
-	if err != nil {
-		panic(err)
-	}
-
-	item := resource.MediaItem{
-		Id: uuid.NewString(),
-		MediaItemInfo: itemInfo,
-	}
-
-	queueKey := fmt.Sprintf(constant.RoomQueueFmt, roomId)
-	currentItemKey := fmt.Sprintf(constant.RoomCurrentItemFmt, roomId)
-
-	ctx := c.Context()
-	rdb := h.app.GetRedis()
-
-	pipe := rdb.Pipeline()
-
-	lenCmd := pipe.LLen(ctx, queueKey)
-	currentCmd := pipe.HExists(ctx, currentItemKey, "url")
-
-	_, err = pipe.Exec(ctx)
-
-	if err != nil {
-		panic(err)
-	}
-
-	if lenCmd.Val() > 0 || currentCmd.Val() {
-		// something else is already playing
-		err = rdb.LPush(ctx, queueKey, item).Err()
-
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		h.setCurrentItem(h.app.Context(), roomId, item)
-	}
-}
-
-func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
-	rdb := h.app.GetRedis()
-	queueKey := fmt.Sprintf(constant.RoomQueueFmt, roomId)
-
-	var item resource.MediaItem
-
-	err := rdb.LPop(ctx, queueKey).Scan(&item)
-
-	if err != nil {
-		fmt.Printf("Error playing next queue item: %v\n", err.Error())
-		return
-	}
-
-	queueRemoveMsg := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.QueueRemove, item.Id),
-	}
-
-	err = h.app.DispatchRoom(roomId, queueRemoveMsg)
-
-	if err != nil {
-		panic(err)
-	}
-
-	h.setCurrentItem(ctx, roomId, item)
-}
-
-func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item resource.MediaItem) {
-	rdb := h.app.GetRedis()
-
-	currentItemKey := fmt.Sprintf(constant.RoomCurrentItemFmt, roomId)
-	stateKey := fmt.Sprintf(constant.RoomStateFmt, roomId)
-
-	state := resource.PlayerState{
-		IsPlaying: false,
-		CurrentTime: 0 * time.Millisecond,
-	}
-
-	err := h.dispatchState(roomId, &state)
-
-	if err != nil {
-		panic(err)
-	}
-
-	pipe := rdb.Pipeline()
-
-	pipe.HSet(ctx, currentItemKey, item)
-	pipe.HSet(ctx, stateKey, state)
-
-	_, err = pipe.Exec(ctx)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource.PlayerState, error) {
-	rdb := h.app.GetRedis()
-	stateKey := fmt.Sprintf(constant.RoomStateFmt, roomId)
-
-	var state resource.PlayerState
-
-	err := rdb.HGetAll(ctx, stateKey).Scan(&state)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if state.IsPlaying {
-		timeDiff := time.Now().Sub(state.PlaybackStart)
-		state.CurrentTime += timeDiff
-	}
-
-	return &state, nil
-}
-
-func (h *Handlers) dispatchState(roomId model.RoomId, state *resource.PlayerState) error {
-	stateMsg := resource.ServerMessage{
-		Data: state.BuildPacket(),
-	}
-
-	return h.app.DispatchRoom(roomId, stateMsg)
-}
-
-func (h *Handlers) sendState(ctx context.Context, roomId model.RoomId) error {
-	state, err := h.getState(ctx, roomId)
-
-	if err != nil {
-		return err
-	}
-
-	return h.dispatchState(roomId, state)
-}
-
-func (h *Handlers) sendStateToClient(c *client.Client) error {
-	state, err := h.getState(c.Context(), c.Session.RoomId)
-
-	if err != nil {
-		return err
-	}
-
-	stateMsg := resource.ServerMessage{
-		Type: resource.NORMAL_MESSAGE,
-		Data: state.BuildPacket(),
-		Target: resource.MessageTarget{
-			UserIds: map[model.UserId]bool{c.Session.UserId: true},
-		},
-	}
-
-	err = h.app.Dispatch(stateMsg)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

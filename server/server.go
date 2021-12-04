@@ -277,7 +277,6 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 
 	wsConn.OnClose(func(conn *websocket.Conn, err error) {
 		s.clients.Remove(c)
-		s.sessions.Remove(c.Session)
 
 		if err != nil {
 			fmt.Printf("Socket Closed: %v\n", err)
@@ -286,8 +285,9 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		session := c.Session
 
 		if session != nil {
-			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
+			s.sessions.Remove(c.Session)
 
+			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
 			s.handlers.Handle(&disconnectPacket, c)
 		}
 	})
