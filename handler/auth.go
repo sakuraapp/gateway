@@ -131,7 +131,7 @@ func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
 
 	session := c.Session
 
-	ctx := c.Context()
+	ctx := h.app.Context()
 	rdb := h.app.GetRedis()
 	pipe := rdb.Pipeline()
 
