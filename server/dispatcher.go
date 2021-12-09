@@ -152,13 +152,14 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 				err = c.Write(msg.Data)
 
 				if err != nil {
+					fmt.Printf("Failed to write to session %v\n", c.Session.Id)
 					return err
 				}
 			}
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (s *Server) DispatchRoom(roomId model.RoomId, msg resource.ServerMessage) error {

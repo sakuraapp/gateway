@@ -129,6 +129,8 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
 	h.removeClient(c, false)
 
+	fmt.Printf("OnDisconnect: %v\n", c.Session.Id)
+
 	session := c.Session
 
 	ctx := h.app.Context()

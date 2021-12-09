@@ -19,8 +19,10 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
+	ctx := c.Context()
+
 	roomId := model.RoomId(intRoomId)
-	room, err := h.app.GetRepos().Room.Get(roomId)
+	room, err := h.app.GetRepos().Room.Get(ctx, roomId)
 
 	if err != nil {
 		panic(err)
@@ -29,18 +31,18 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	s := c.Session
 	currRoomId := s.RoomId
 	alreadyInRoom := currRoomId == roomId
+	isRoomOwner := s.UserId == room.OwnerId
 
 	if currRoomId != 0 && !alreadyInRoom {
 		h.HandleLeaveRoom(data, c)
 	}
 
 	userId := s.UserId
-	strUserId := string(userId)
+	strUserId := strconv.FormatInt(int64(userId), 10)
 
-	ctx := c.Context()
 	rdb := h.app.GetRedis()
 
-	if room.Private && !alreadyInRoom {
+	if room.Private && !alreadyInRoom && !isRoomOwner {
 		inviteKey := fmt.Sprintf(constant.RoomInviteFmt, roomId)
 		inviteExists, err := rdb.HExists(ctx, inviteKey, strUserId).Result()
 
