@@ -12,8 +12,6 @@ import (
 )
 
 func main() {
-	log.SetLevel(log.DebugLevel)
-
 	err := godotenv.Load()
 
 	if err != nil {
@@ -24,6 +22,13 @@ func main() {
 
 	if port == "" {
 		port = "9000"
+	}
+
+	env := os.Getenv("APP_ENV")
+	envType := config.EnvDEV
+
+	if env == string(config.EnvPROD) {
+		envType = config.EnvPROD
 	}
 
 	allowedOrigins := strings.Split(strings.ToLower(os.Getenv("ALLOWED_ORIGINS")), ", ")
@@ -45,7 +50,8 @@ func main() {
 	}
 
 	s := server.New(config.Config{
-		Port:           port,
+		Env: envType,
+		Port: port,
 		NodeId: nodeId,
 		AllowedOrigins: allowedOrigins,
 		JWTPublicPath: jwtPublicPath,

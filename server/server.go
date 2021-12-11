@@ -66,10 +66,13 @@ func New(conf config.Config) *Server {
 	db := pg.Connect(&dbOpts)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	db.AddQueryHook(pgdebug.DebugHook{
-		// Print all queries.
-		Verbose: true,
-	})
+	if conf.IsDev() {
+		log.SetLevel(log.DebugLevel)
+		db.AddQueryHook(pgdebug.DebugHook{
+			// Print all queries.
+			Verbose: true,
+		})
+	}
 
 	if err := db.Ping(ctx); err != nil {
 		log.Fatalf("Error opening database connection: %v", err)
