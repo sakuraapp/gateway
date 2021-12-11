@@ -55,16 +55,20 @@ func (s *Server) initPubsub() {
 				_, err = fmt.Sscanf(message.Channel, constant.RoomFmt, &roomId)
 
 				if err != nil {
-					log.Errorf("Invalid PubSub Message Channel: %v\nErr: %v", message.Channel, err)
+					log.
+						WithField("channel", message.Channel).
+						WithError(err).
+						Error("Failed to parse PubSub Message Channel")
+
 					continue
 				}
 
-				log.Debugf("Incoming Room Message: [Room: %v] %+v\n", roomId, msg)
+				log.WithField("room_id", roomId).Debugf("Incoming Room Message: %+v", msg)
 
 				err = s.DispatchRoomLocal(roomId, msg)
 
 				if err != nil {
-					log.Errorf("Unable to handle PubSub Room Message: %+v", msg)
+					log.WithError(err).Error("Unable to handle PubSub Room Message")
 				}
 			}
 		}

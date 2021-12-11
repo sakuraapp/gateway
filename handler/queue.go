@@ -121,7 +121,7 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
 		userId := c.Session.UserId
 
 		if item.Author != userId {
-			log.Warnf("User %v attempting to remove a queue item without permission\n", userId)
+			log.WithField("user_id", userId).Warn("Detected an attempt to remove a queue item without permission")
 			return
 		}
 	}

@@ -75,7 +75,7 @@ func New(conf config.Config) *Server {
 	}
 
 	if err := db.Ping(ctx); err != nil {
-		log.Fatalf("Error opening database connection: %v", err)
+		log.WithError(err).Fatal("Failed to open database connection")
 	}
 
 	rdb := redis.NewClient(&redis.Options{
@@ -92,7 +92,11 @@ func New(conf config.Config) *Server {
 
 	repos := repository.Init(db, myCache)
 
-	jwtPublicKey := shared.LoadRSAPublicKey(conf.JWTPublicPath)
+	jwtPublicKey, err := shared.LoadRSAPublicKey(conf.JWTPublicPath)
+
+	if err != nil {
+		log.WithError(err).Fatal("Failed to load public key")
+	}
 
 	addr := fmt.Sprintf("0.0.0.0:%v", conf.Port)
 	s := &Server{
@@ -195,7 +199,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	log.Printf("Server is listening on port %v\n", s.Port)
+	log.Printf("Server is listening on port %v", s.Port)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -252,7 +256,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(data, &packet)
 
 		if err != nil {
-			log.Warnf("Invalid Packet: %v\n", string(data))
+			log.Warnf("Received an invalid packet: %v", string(data))
 			return
 		}
 
@@ -260,7 +264,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			return // opcode not allowed
 		}
 
-		log.Debugf("OnMessage: %+v\n", packet)
+		log.Debugf("OnMessage: %+v", packet)
 		s.handlers.Handle(&packet, c)
 	})
 
@@ -283,7 +287,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		s.clients.Remove(c)
 
 		if err != nil {
-			log.Errorf("Socket Closed: %v\n", err)
+			log.WithError(err).Error("Socket Closed")
 		}
 
 		session := c.Session

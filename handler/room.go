@@ -13,16 +13,15 @@ import (
 )
 
 func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
-	strRoomId := data.Data.(string)
-	intRoomId, err := strconv.Atoi(strRoomId)
+	fRoomId, ok := data.Data.(float64)
 
-	if err != nil {
-		panic(err)
+	if !ok {
+		return
 	}
 
 	ctx := c.Context()
 
-	roomId := model.RoomId(intRoomId)
+	roomId := model.RoomId(fRoomId)
 	room, err := h.app.GetRepos().Room.Get(ctx, roomId)
 
 	if err != nil {
@@ -95,7 +94,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	log.Debugf("Join Room: %+v\n", room)
+	log.Debugf("Join Room: %+v", room)
 
 	s.RoomId = roomId
 

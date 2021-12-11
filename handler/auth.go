@@ -16,7 +16,7 @@ type AuthResponseData struct {
 }
 
 func (h *Handlers) handleAuthFail(err error, client *client.Client) {
-	log.Errorf("Auth Failed: %v\n", err)
+	log.WithError(err).Error("Authentication failed")
 	client.Disconnect()
 }
 
@@ -82,7 +82,10 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				}
 			}
 		} else {
-			log.Errorf("Error reclaiming session: %v\n", err)
+			log.
+				WithField("session_id", sessionId).
+				WithError(err).
+				Error("Failed to reclaim session")
 		}
  	}
 
@@ -111,7 +114,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	log.Debugf("User: %+v\n", user)
+	log.Debugf("User: %+v", user)
 
 	err = c.Send(opcode.Authenticate, AuthResponseData{SessionId: s.Id})
 
@@ -133,7 +136,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
 	h.removeClient(c, false)
 
-	log.Printf("OnDisconnect: %v\n", c.Session.Id)
+	log.Debugf("OnDisconnect: %v", c.Session.Id)
 
 	session := c.Session
 

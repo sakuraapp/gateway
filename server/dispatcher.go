@@ -153,7 +153,11 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 				err = c.Write(msg.Data)
 
 				if err != nil {
-					log.Warnf("Failed to write to session %v\n", c.Session.Id)
+					log.
+						WithField("session_id", c.Session.Id).
+						WithError(err).
+						Error("Failed to write to client")
+
 					return err
 				}
 			}

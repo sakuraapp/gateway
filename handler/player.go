@@ -171,7 +171,7 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
 		if err == redis.Nil {
 			item = nil
 		} else {
-			log.Errorf("Error playing next queue item: %v\n", err.Error())
+			log.WithError(err).Error("Failed to play next queue item")
 			return
 		}
 	}
