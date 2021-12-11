@@ -60,23 +60,26 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		err = rdb.HGetAll(ctx, key).Scan(&sess)
 
 		if err == nil {
-			s = &sess
+			// if userId is 0 inside the session, then it's already expired
+			if s.UserId != 0 {
+				s = &sess
 
-			if user.Id != s.UserId {
-				h.handleAuthFail(
-					fmt.Errorf("session hijack attempted: session owner %v - target user %v", s.UserId, user.Id),
-					c,
-				)
-				return
-			}
+				if user.Id != s.UserId {
+					h.handleAuthFail(
+						fmt.Errorf("session hijack attempted: session owner %v - target user %v", s.UserId, user.Id),
+						c,
+					)
+					return
+				}
 
-			s.Id = sessionId
-			h.app.GetClientMgr().UpdateSession(c, s)
+				s.Id = sessionId
+				h.app.GetClientMgr().UpdateSession(c, s)
 
-			pipe.Persist(ctx, key)
+				pipe.Persist(ctx, key)
 
-			if s.NodeId != nodeId {
-				pipe.HSet(ctx, key, "node_id", nodeId)
+				if s.NodeId != nodeId {
+					pipe.HSet(ctx, key, "node_id", nodeId)
+				}
 			}
 		} else {
 			log.Errorf("Error reclaiming session: %v\n", err)
