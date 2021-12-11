@@ -8,6 +8,7 @@ import (
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -94,7 +95,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	fmt.Printf("Join Room: %+v\n", room)
+	log.Debugf("Join Room: %+v\n", room)
 
 	s.RoomId = roomId
 

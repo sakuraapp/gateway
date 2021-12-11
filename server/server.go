@@ -20,7 +20,7 @@ import (
 	shared "github.com/sakuraapp/shared/pkg"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
@@ -191,7 +191,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	fmt.Printf("Server is listening on port %v\n", s.Port)
+	log.Printf("Server is listening on port %v\n", s.Port)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -203,7 +203,7 @@ func (s *Server) Start() error {
 	// defer cancel()
 	defer s.ctxCancel()
 
-	fmt.Println("Shutting down...")
+	log.Println("Shutting down...")
 	err = s.server.Shutdown(s.ctx)
 
 	if err != nil {
@@ -248,7 +248,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(data, &packet)
 
 		if err != nil {
-			fmt.Printf("Invalid Packet: %v\n", string(data))
+			log.Warnf("Invalid Packet: %v\n", string(data))
 			return
 		}
 
@@ -256,7 +256,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			return // opcode not allowed
 		}
 
-		fmt.Printf("OnMessage: %+v\n", packet)
+		log.Debugf("OnMessage: %+v\n", packet)
 		s.handlers.Handle(&packet, c)
 	})
 
@@ -279,7 +279,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		s.clients.Remove(c)
 
 		if err != nil {
-			fmt.Printf("Socket Closed: %v\n", err)
+			log.Errorf("Socket Closed: %v\n", err)
 		}
 
 		session := c.Session

@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -40,7 +40,7 @@ func (c *Client) Write(packet resource.Packet) error {
 		return err
 	}
 
-	fmt.Printf("OnWrite: %+v\n", packet)
+	log.Debugf("OnWrite: %+v\n", packet)
 
 	return nil
 }

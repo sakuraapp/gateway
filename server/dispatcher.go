@@ -6,6 +6,7 @@ import (
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
+	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -152,7 +153,7 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 				err = c.Write(msg.Data)
 
 				if err != nil {
-					fmt.Printf("Failed to write to session %v\n", c.Session.Id)
+					log.Warnf("Failed to write to session %v\n", c.Session.Id)
 					return err
 				}
 			}

@@ -10,6 +10,7 @@ import (
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -59,8 +60,6 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Printf("%+v\n", state)
 
 		err = rdb.HSet(ctx,
 			stateKey,
@@ -172,7 +171,7 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
 		if err == redis.Nil {
 			item = nil
 		} else {
-			fmt.Printf("Error playing next queue item: %v\n", err.Error())
+			log.Errorf("Error playing next queue item: %v\n", err.Error())
 			return
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
+	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -23,7 +24,7 @@ func (s *Server) initPubsub() {
 			message, err := pubsub.ReceiveMessage(ctx)
 
 			if err != nil {
-				fmt.Printf("PubSub Error: %v", err)
+				log.Errorf("PubSub Error: %v", err)
 				continue
 			}
 
@@ -32,7 +33,7 @@ func (s *Server) initPubsub() {
 			err = msgpack.Unmarshal([]byte(message.Payload), &msg)
 
 			if err != nil {
-				fmt.Printf("PubSub Deserialization Error: %v", err)
+				log.Errorf("PubSub Deserialization Error: %v", err)
 				continue
 			}
 
@@ -47,23 +48,23 @@ func (s *Server) initPubsub() {
 				err = s.DispatchLocal(msg)
 
 				if err != nil {
-					fmt.Printf("Unable to locally dispatch PubSub Message: %+v", msg)
+					log.Errorf("Unable to locally dispatch PubSub Message: %+v", msg)
 				}
 			} else {
 				var roomId model.RoomId
 				_, err = fmt.Sscanf(message.Channel, constant.RoomFmt, &roomId)
 
 				if err != nil {
-					fmt.Printf("Invalid PubSub Message Channel: %v\nErr: %v", message.Channel, err)
+					log.Errorf("Invalid PubSub Message Channel: %v\nErr: %v", message.Channel, err)
 					continue
 				}
 
-				fmt.Printf("Incoming Room Message: [Room: %v] %+v\n", roomId, msg)
+				log.Debugf("Incoming Room Message: [Room: %v] %+v\n", roomId, msg)
 
 				err = s.DispatchRoomLocal(roomId, msg)
 
 				if err != nil {
-					fmt.Printf("Unable to handle PubSub Room Message: %+v", msg)
+					log.Errorf("Unable to handle PubSub Room Message: %+v", msg)
 				}
 			}
 		}

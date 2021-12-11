@@ -1,18 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/sakuraapp/gateway/config"
 	"github.com/sakuraapp/gateway/server"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"strings"
 )
 
 func main() {
+	log.SetLevel(log.DebugLevel)
+
 	err := godotenv.Load()
 
 	if err != nil {
@@ -57,6 +58,6 @@ func main() {
 	})
 
 	if err := s.Start(); err != nil {
-		fmt.Printf("Failed to start server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

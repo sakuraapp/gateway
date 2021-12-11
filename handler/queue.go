@@ -11,6 +11,7 @@ import (
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
+	log "github.com/sirupsen/logrus"
 	"net/url"
 )
 
@@ -120,7 +121,7 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
 		userId := c.Session.UserId
 
 		if item.Author != userId {
-			fmt.Printf("User %v attempting to remove a queue item without permission\n", userId)
+			log.Warnf("User %v attempting to remove a queue item without permission\n", userId)
 			return
 		}
 	}

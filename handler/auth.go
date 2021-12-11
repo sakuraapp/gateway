@@ -7,6 +7,7 @@ import (
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -15,7 +16,7 @@ type AuthResponseData struct {
 }
 
 func (h *Handlers) handleAuthFail(err error, client *client.Client) {
-	fmt.Printf("Auth Failed: %v\n", err)
+	log.Errorf("Auth Failed: %v\n", err)
 	client.Disconnect()
 }
 
@@ -78,7 +79,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				pipe.HSet(ctx, key, "node_id", nodeId)
 			}
 		} else {
-			fmt.Printf("%v\n", err)
+			log.Errorf("Error reclaiming session: %v\n", err)
 		}
  	}
 
@@ -107,7 +108,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	fmt.Printf("User: %+v\n", user)
+	log.Debugf("User: %+v\n", user)
 
 	err = c.Send(opcode.Authenticate, AuthResponseData{SessionId: s.Id})
 
@@ -129,7 +130,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
 	h.removeClient(c, false)
 
-	fmt.Printf("OnDisconnect: %v\n", c.Session.Id)
+	log.Printf("OnDisconnect: %v\n", c.Session.Id)
 
 	session := c.Session
 
