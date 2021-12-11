@@ -16,6 +16,9 @@ func Init(db *pg.DB, cache *cache.Cache) *Repositories {
 			db: db,
 			cache: cache,
 		},
-		Room: &RoomRepository{db: db},
+		Room: &RoomRepository{
+			db: db,
+			cache: cache,
+		},
 	}
 }
