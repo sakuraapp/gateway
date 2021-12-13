@@ -61,7 +61,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 
 		if err == nil {
 			// if userId is 0 inside the session, then it's already expired
-			if s.UserId != 0 {
+			if sess.UserId != 0 {
 				s = &sess
 
 				if user.Id != s.UserId {
