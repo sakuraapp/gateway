@@ -60,3 +60,18 @@ func (u *UserRepository) GetUsersWithDiscriminators(ids []model.UserId) ([]model
 
 	return users, err
 }
+
+func (u *UserRepository) GetRoomMembers(ids []model.UserId, roomId model.RoomId) ([]model.RoomMember, error) {
+	var members []model.RoomMember
+	err := u.db.Model(&members).
+		Column("user.*").
+		ColumnExpr("discriminator.value AS discriminator").
+		Join("LEFT JOIN discriminators AS discriminator ON discriminator.owner_id = ?", pg.Ident("user.id")).
+		Where("? in (?)", pg.Ident("user.id"), pg.In(ids)).
+		Relation("Roles", func(q *pg.Query) (*pg.Query, error) {
+			return q.Where("room_id = ?", roomId), nil
+		}).
+		Select()
+
+	return members, err
+}

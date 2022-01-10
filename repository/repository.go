@@ -8,6 +8,7 @@ import (
 type Repositories struct {
 	User *UserRepository
 	Room *RoomRepository
+	Role *RoleRepository
 }
 
 func Init(db *pg.DB, cache *cache.Cache) *Repositories {
@@ -19,6 +20,9 @@ func Init(db *pg.DB, cache *cache.Cache) *Repositories {
 		Room: &RoomRepository{
 			db: db,
 			cache: cache,
+		},
+		Role: &RoleRepository{
+			db: db,
 		},
 	}
 }

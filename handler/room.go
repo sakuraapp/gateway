@@ -7,7 +7,7 @@ import (
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
-	"github.com/sakuraapp/shared/resource/permission"
+	"github.com/sakuraapp/shared/resource/role"
 	log "github.com/sirupsen/logrus"
 	"strconv"
 )
@@ -139,31 +139,57 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		}
 	}
 
-	users, err := h.app.GetRepos().User.GetUsersWithDiscriminators(userIds)
+	roomMembers, err := h.app.GetRepos().User.GetRoomMembers(userIds, roomId)
 
 	if err != nil {
 		panic(err)
 	}
 
+	members := make([]*resource.RoomMember, 0, len(roomMembers))
+
+	for _, roomMember := range roomMembers {
+		member := resource.NewRoomMember(&roomMember)
+		member.Roles = append(member.Roles, role.MEMBER)
+
+		if member.User.Id == room.OwnerId {
+			member.Roles = append(member.Roles, role.HOST)
+		}
+
+		members = append(members, member)
+	}
+
 	addUserMessage := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.AddUser, resource.NewUser(&users[0])),
+		Data: resource.BuildPacket(opcode.AddUser, members[0]),
 		Target: resource.MessageTarget{
 			IgnoredSessionIds: map[string]bool{sessionId: true},
 		},
 	}
 
-	s.Permissions = permission.QUEUE_ADD
+	userRoles, err := h.app.GetRepos().Role.Get(userId, roomId)
 
-	if userId == room.OwnerId {
-		s.AddPermission(permission.QUEUE_EDIT)
-		s.AddPermission(permission.VIDEO_REMOTE)
+	if err != nil {
+		panic(err)
 	}
+
+	roles := role.NewManager()
+	roles.Add(role.MEMBER)
+
+	for _, userRole := range userRoles {
+		roles.Add(userRole.Role)
+	}
+
+	if isRoomOwner {
+		roles.Add(role.HOST)
+	}
+
+	c.Session.Roles = roles
 
 	joinRoomData := map[string]interface{}{
 		"status": 200,
 		"room": resource.NewRoom(room),
-		"users": resource.NewUserList(users),
-		"permissions": s.Permissions,
+		"members": members,
+		"roles": roles.Roles(),
+		"permissions": roles.Permissions(),
 	}
 
 	err = h.app.DispatchRoom(roomId, addUserMessage)
