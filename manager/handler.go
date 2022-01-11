@@ -6,17 +6,27 @@ import (
 	"github.com/sakuraapp/shared/resource/opcode"
 )
 
+// Normal handlers handle client messages
+// Server handles handle server messages, i.e. messages from other servers
+// todo: rework this to use generics once they're out in stable
+
 type HandlerFunc func(packet *resource.Packet, client *client.Client)
 type HandlerList []HandlerFunc
 type HandlerMap map[opcode.Opcode]HandlerList
 
+type ServerHandlerFunc func(packet *resource.Packet)
+type ServerHandlerList []ServerHandlerFunc
+type ServerHandlerMap map[opcode.Opcode]ServerHandlerList
+
 type HandlerManager struct {
 	handlers HandlerMap
+	serverHandlers ServerHandlerMap
 }
 
 func NewHandlerManager() *HandlerManager {
 	return &HandlerManager{
 		handlers: HandlerMap{},
+		serverHandlers: ServerHandlerMap{},
 	}
 }
 
@@ -34,6 +44,24 @@ func (h *HandlerManager) Handle(packet *resource.Packet, client *client.Client) 
 	if list != nil {
 		for _, handler := range list {
 			handler(packet, client)
+		}
+	}
+}
+
+func (h *HandlerManager) RegisterServer(op opcode.Opcode, fn ServerHandlerFunc)  {
+	if h.serverHandlers[op] == nil {
+		h.serverHandlers[op] = ServerHandlerList{fn}
+	} else {
+		h.serverHandlers[op] = append(h.serverHandlers[op], fn)
+	}
+}
+
+func (h *HandlerManager) HandleServer(msg *resource.ServerMessage) {
+	list := h.serverHandlers[msg.Data.Opcode]
+
+	if list != nil {
+		for _, handler := range list {
+			handler(&msg.Data)
 		}
 	}
 }

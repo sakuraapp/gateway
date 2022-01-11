@@ -10,6 +10,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
+	"github.com/lesismal/nbio/taskpool"
 	"github.com/rs/cors"
 	"github.com/sakuraapp/gateway/client"
 	"github.com/sakuraapp/gateway/config"
@@ -30,6 +31,7 @@ import (
 type Server struct {
 	config.Config
 	cors *cors.Cors
+	taskPool *taskpool.MixedPool
 	server *nbhttp.Server
 	ctx context.Context
 	ctxCancel context.CancelFunc
@@ -99,12 +101,20 @@ func New(conf config.Config) *Server {
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%v", conf.Port)
+	serverConfig := nbhttp.Config{
+		Network: "tcp",
+		Addrs: []string{addr},
+		MaxLoad: 1000000,
+		ReleaseWebsocketPayload: true,
+	}
+
 	s := &Server{
 		Config:   conf,
 		cors:     c,
 		ctx:  	  context.Background(),
 		ctxCancel: cancel,
 		crawler:  internal.NewCrawler(),
+		taskPool: internal.NewTaskpool(&serverConfig),
 		jwt:      &internal.JWT{PublicKey: jwtPublicKey},
 		db:       db,
 		rdb:      rdb,
@@ -127,12 +137,7 @@ func New(conf config.Config) *Server {
 
 	h := c.Handler(mux)
 
-	s.server = nbhttp.NewServer(nbhttp.Config{
-		Network: "tcp",
-		Addrs: []string{addr},
-		MaxLoad: 1000000,
-		ReleaseWebsocketPayload: true,
-	}, h, nil)
+	s.server = nbhttp.NewServer(serverConfig, h, s.taskPool.Go)
 
 	return s
 }

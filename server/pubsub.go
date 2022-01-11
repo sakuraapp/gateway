@@ -45,10 +45,16 @@ func (s *Server) initPubsub() {
 			ch := message.Channel
 
 			if ch == chName || ch == constant.BroadcastChName {
-				err = s.DispatchLocal(msg)
+				if msg.Type == resource.SERVER_MESSAGE {
+					s.taskPool.Go(func() {
+						s.handlers.HandleServer(&msg)
+					})
+				} else {
+					err = s.DispatchLocal(msg)
 
-				if err != nil {
-					log.Errorf("Unable to locally dispatch PubSub Message: %+v", msg)
+					if err != nil {
+						log.Errorf("Unable to locally dispatch PubSub Message: %+v", msg)
+					}
 				}
 			} else {
 				var roomId model.RoomId

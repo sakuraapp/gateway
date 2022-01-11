@@ -40,19 +40,25 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 			}
 		}
 	case resource.NORMAL_MESSAGE:
-		for userId := range msg.Target.UserIds {
-			sessionIds := sessMgr.GetByUserId(userId)
+		sessionIds := msg.Target.SessionIds
 
-			for sessionId := range sessionIds {
-				isIgnored := ignoredSessions[sessionId]
-				c := clients[sessionId]
+		for _, userId := range msg.Target.UserIds {
+			sessions := sessMgr.GetByUserId(userId)
 
-				if !isIgnored && c != nil {
-					err := c.Write(msg.Data)
+			for session := range sessions {
+				sessionIds = append(sessionIds, session)
+			}
+		}
 
-					if err != nil {
-						return err
-					}
+		for _, sessionId := range sessionIds {
+			isIgnored := ignoredSessions[sessionId]
+			c := clients[sessionId]
+
+			if !isIgnored && c != nil {
+				err := c.Write(msg.Data)
+
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -64,7 +70,8 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 func (s *Server) Dispatch(msg resource.ServerMessage) error {
 	msg.Origin = s.NodeId()
 
-	if msg.Type == resource.BROADCAST_MESSAGE {
+	switch msg.Type {
+	case resource.BROADCAST_MESSAGE:
 		err := s.DispatchLocal(msg)
 
 		if err != nil {
@@ -72,11 +79,17 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 		}
 
 		return s.rdb.Publish(s.ctx, constant.BroadcastChName, msg).Err()
-	} else if msg.Type == resource.NORMAL_MESSAGE {
+	case resource.NORMAL_MESSAGE:
+	case resource.SERVER_MESSAGE:
+		// note: both normal and server messages can be dispatched toward certain users
+		// todo: re-investigate how server messages should be targeted
+
 		pipe := s.rdb.Pipeline()
 		locNodeId := s.NodeId()
 
-		for userId := range msg.Target.UserIds {
+		sessionIds := msg.Target.SessionIds
+
+		for _, userId := range msg.Target.UserIds {
 			pipe.SMembers(s.ctx, fmt.Sprintf(constant.UserSessionsFmt, userId))
 		}
 
@@ -87,6 +100,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 		}
 
 		pipe = s.rdb.Pipeline()
+
 		var sessionKey string
 
 		for _, result := range results {
@@ -96,6 +110,11 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 				sessionKey = fmt.Sprintf(constant.SessionFmt, session)
 				pipe.HGet(s.ctx, sessionKey, "node_id")
 			}
+		}
+
+		for _, session := range sessionIds {
+			sessionKey = fmt.Sprintf(constant.SessionFmt, session)
+			pipe.HGet(s.ctx, sessionKey, "node_id")
 		}
 
 		results, err = pipe.Exec(s.ctx)
@@ -121,7 +140,11 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 				nodes[nodeId] = true
 				
 				if nodeId == locNodeId {
-					s.DispatchLocal(msg)
+					if msg.Type == resource.SERVER_MESSAGE {
+						s.handlers.HandleServer(&msg)
+					} else {
+						s.DispatchLocal(msg)
+					}
 				} else {
 					nodeKey = fmt.Sprintf(constant.GatewayFmt, nodeId)
 					pipe.Publish(s.ctx, nodeKey, bytes)
