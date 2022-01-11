@@ -8,7 +8,6 @@ import (
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	log "github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type AuthResponseData struct {
@@ -126,7 +125,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 		h.HandleJoinRoom(
 			&resource.Packet{
 				Opcode: opcode.JoinRoom,
-				Data: strconv.Itoa(int(s.RoomId)),
+				Data: float64(s.RoomId),
 			},
 			c,
 		)
