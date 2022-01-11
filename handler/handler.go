@@ -23,4 +23,7 @@ func Init(app internal.App) {
 	m.Register(opcode.Seek, h.HandleSeek)
 	m.Register(opcode.VideoSkip, h.HandleSkip)
 	m.Register(opcode.VideoEnd, h.HandleVideoEnd)
+	m.Register(opcode.KickUser, h.HandleKickUser)
+
+	m.RegisterServer(opcode.KickUser, h.kickUser)
 }

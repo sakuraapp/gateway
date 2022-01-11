@@ -12,6 +12,7 @@ type RoleRepository struct {
 func (r *RoleRepository) Get(userId model.UserId, roomId model.RoomId) ([]model.UserRole, error) {
 	var roles []model.UserRole
 	err := r.db.Model(&roles).
+		Column("id", "role_id").
 		Where("user_id = ?", userId).
 		Where("room_id = ?", roomId).
 		Order("id ASC").
