@@ -40,25 +40,19 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 			}
 		}
 	case resource.NORMAL_MESSAGE:
-		sessionIds := msg.Target.SessionIds
-
 		for _, userId := range msg.Target.UserIds {
 			sessions := sessMgr.GetByUserId(userId)
 
-			for session := range sessions {
-				sessionIds = append(sessionIds, session)
-			}
-		}
+			for sessionId := range sessions {
+				isIgnored := ignoredSessions[sessionId]
+				c := clients[sessionId]
 
-		for _, sessionId := range sessionIds {
-			isIgnored := ignoredSessions[sessionId]
-			c := clients[sessionId]
+				if !isIgnored && c != nil {
+					err := c.Write(msg.Data)
 
-			if !isIgnored && c != nil {
-				err := c.Write(msg.Data)
-
-				if err != nil {
-					return err
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -87,8 +81,6 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 		pipe := s.rdb.Pipeline()
 		locNodeId := s.NodeId()
 
-		sessionIds := msg.Target.SessionIds
-
 		for _, userId := range msg.Target.UserIds {
 			pipe.SMembers(s.ctx, fmt.Sprintf(constant.UserSessionsFmt, userId))
 		}
@@ -110,11 +102,6 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 				sessionKey = fmt.Sprintf(constant.SessionFmt, session)
 				pipe.HGet(s.ctx, sessionKey, "node_id")
 			}
-		}
-
-		for _, session := range sessionIds {
-			sessionKey = fmt.Sprintf(constant.SessionFmt, session)
-			pipe.HGet(s.ctx, sessionKey, "node_id")
 		}
 
 		results, err = pipe.Exec(s.ctx)
