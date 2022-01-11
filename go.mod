@@ -12,7 +12,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/lesismal/nbio v1.2.2
 	github.com/rs/cors v1.8.0
-	github.com/sakuraapp/shared v0.0.0-20220111010106-f6b8815ed93c
+	github.com/sakuraapp/shared v0.0.0-20220111023701-4fdce59bf658
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.4
 	golang.org/x/net v0.0.0-20211020060615-d418f374d309

@@ -21,6 +21,7 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 	defer mu.Unlock()
 
 	ignoredSessions := msg.Target.IgnoredSessionIds
+	roomId := msg.Target.RoomId
 
 	switch msg.Type {
 	case resource.BROADCAST_MESSAGE:
@@ -43,9 +44,13 @@ func (s *Server) DispatchLocal(msg resource.ServerMessage) error {
 		for _, userId := range msg.Target.UserIds {
 			sessions := sessMgr.GetByUserId(userId)
 
-			for sessionId := range sessions {
-				isIgnored := ignoredSessions[sessionId]
-				c := clients[sessionId]
+			for _, session := range sessions {
+				isIgnored := ignoredSessions[session.Id]
+				c := clients[session.Id]
+
+				if roomId != 0 && roomId != session.RoomId {
+					continue
+				}
 
 				if !isIgnored && c != nil {
 					err := c.Write(msg.Data)
@@ -80,9 +85,14 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 
 		pipe := s.rdb.Pipeline()
 		locNodeId := s.NodeId()
+		roomId := msg.Target.RoomId
 
 		for _, userId := range msg.Target.UserIds {
-			pipe.SMembers(s.ctx, fmt.Sprintf(constant.UserSessionsFmt, userId))
+			if roomId == 0 {
+				pipe.SMembers(s.ctx, fmt.Sprintf(constant.UserSessionsFmt, userId))
+			} else {
+				pipe.SMembers(s.ctx, fmt.Sprintf(constant.RoomUserSessionsFmt, roomId, userId))
+			}
 		}
 
 		results, err := pipe.Exec(s.ctx)
