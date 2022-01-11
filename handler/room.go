@@ -301,6 +301,16 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 		if err != nil {
 			panic(err)
 		}
+
+		leaveMsg := resource.ServerMessage{
+			Data: resource.BuildPacket(opcode.RemoveUser, userId),
+		}
+
+		err = h.app.DispatchRoom(roomId, leaveMsg)
+
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	s.RoomId = 0
