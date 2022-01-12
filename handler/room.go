@@ -164,13 +164,12 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		},
 	}
 
-	userRoles, err := h.app.GetRepos().Role.Get(userId, roomId)
+	userRoles := members[0].Roles
+	roles := role.NewManager()
 
-	if err != nil {
-		panic(err)
+	for _, roleId := range userRoles {
+		roles.Add(roleId)
 	}
-
-	roles := model.BuildRoleManager(userRoles)
 
 	c.Session.Roles = roles
 
@@ -178,7 +177,6 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		"status": 200,
 		"room": resource.NewRoom(room),
 		"members": members,
-		"roles": roles.Slice(),
 		"permissions": roles.Permissions(),
 	}
 
