@@ -14,7 +14,7 @@ type HandlerFunc func(packet *resource.Packet, client *client.Client)
 type HandlerList []HandlerFunc
 type HandlerMap map[opcode.Opcode]HandlerList
 
-type ServerHandlerFunc func(packet *resource.Packet)
+type ServerHandlerFunc func(packet *resource.ServerMessage)
 type ServerHandlerList []ServerHandlerFunc
 type ServerHandlerMap map[opcode.Opcode]ServerHandlerList
 
@@ -61,7 +61,7 @@ func (h *HandlerManager) HandleServer(msg *resource.ServerMessage) {
 
 	if list != nil {
 		for _, handler := range list {
-			handler(&msg.Data)
+			handler(msg)
 		}
 	}
 }

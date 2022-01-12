@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sakuraapp/gateway/client"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
@@ -13,9 +14,9 @@ import (
 	"strconv"
 )
 
-type KickMessage struct {
-	UserId model.UserId
-	RoomId model.RoomId
+type RoleUpdateMessage struct {
+	UserId model.UserId `json:"userId" mapstructure:"userId"`
+	RoleId role.Id `json:"roleId" mapstructure:"roleId"`
 }
 
 func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
@@ -153,12 +154,6 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 	for _, roomMember := range roomMembers {
 		member := resource.NewRoomMember(&roomMember)
-		member.Roles = append(member.Roles, role.MEMBER)
-
-		if member.User.Id == room.OwnerId {
-			member.Roles = append(member.Roles, role.HOST)
-		}
-
 		members = append(members, member)
 	}
 
@@ -243,6 +238,159 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	}
 }
 
+func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
+	s := c.Session
+	roomId := s.RoomId
+
+	if roomId == 0 || !s.HasPermission(permission.MANAGE_ROLES) {
+		log.
+			WithFields(log.Fields{
+				"user_id": s.UserId,
+				"room_id": s.RoomId,
+			}).
+			Warn("Attempted to update a user's roles without the correct permissions")
+
+		return
+	}
+
+	var opts RoleUpdateMessage
+
+	err := mapstructure.Decode(data.Data, &opts)
+
+	if err != nil {
+		return
+	}
+
+	if opts.UserId == s.UserId {
+		return
+	}
+
+	r := role.GetRole(opts.RoleId)
+
+	if r == nil {
+		return
+	}
+
+	myHighestRole := s.Roles.Max()
+
+	if r.Order() >= myHighestRole.Order() {
+		return
+	}
+
+	ctx := c.Context()
+	rdb := h.app.GetRedis()
+
+	usersKey := fmt.Sprintf(constant.RoomUsersFmt, roomId)
+	isInRoom, err := rdb.SIsMember(ctx, usersKey, opts.UserId).Result()
+
+	if err != nil {
+		panic(err)
+	}
+
+	if !isInRoom {
+		return
+	}
+
+	roleRepo := h.app.GetRepos().Role
+
+	if data.Opcode == opcode.RemoveRole {
+		userRoles, err := roleRepo.Get(opts.UserId, roomId)
+
+		if err != nil {
+			panic(err)
+		}
+
+		roles := model.BuildRoleManager(userRoles)
+		hisHighestRole := roles.Max()
+
+		if myHighestRole.Order() <= hisHighestRole.Order() {
+			log.
+				WithFields(log.Fields{
+					"user_id":        s.UserId,
+					"target_user_id": opts.UserId,
+				}).
+				Warn("User tried to remove a role from another user with an equal or higher authority")
+			return
+		}
+	}
+
+	userRole := model.UserRole{
+		UserId: opts.UserId,
+		RoomId: roomId,
+		RoleId: r.Id(),
+	}
+
+	if data.Opcode == opcode.AddRole {
+		err = roleRepo.Add(&userRole)
+	} else {
+		err = roleRepo.Remove(&userRole)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	updateServerMsg := resource.ServerMessage{
+		Type: resource.SERVER_MESSAGE,
+		Target: resource.MessageTarget{
+			UserIds: []model.UserId{opts.UserId},
+			RoomId: roomId,
+		},
+		Data: *data,
+	}
+
+	err = h.app.Dispatch(updateServerMsg)
+
+	if err != nil {
+		panic(err)
+	}
+
+	updateMsg := resource.ServerMessage{
+		Target: resource.MessageTarget{
+			IgnoredSessionIds: map[string]bool{
+				s.Id: true,
+			},
+		},
+		Data: *data,
+	}
+
+	err = h.app.DispatchRoom(roomId, updateMsg)
+}
+
+func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
+	var opts RoleUpdateMessage
+
+	err := mapstructure.Decode(msg.Data.Data, &opts)
+
+	if err != nil {
+		return
+	}
+
+	userId := opts.UserId
+	roleId := opts.RoleId
+	roomId := msg.Target.RoomId
+
+	ignoredSessionIds := msg.Target.IgnoredSessionIds
+
+	clients := h.app.GetClientMgr().Clients()
+	sessions := h.app.GetSessionMgr().GetByUserId(userId)
+
+	for _, s := range sessions {
+		if s.RoomId != roomId || ignoredSessionIds[s.Id] {
+			continue
+		}
+
+		c := clients[s.Id]
+
+		s.Roles.Add(roleId)
+		err = c.Send(opcode.UpdatePermissions, s.Roles.Permissions())
+
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 	s := c.Session
 	userId := s.UserId
@@ -320,7 +468,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	s := c.Session
 	roomId := s.RoomId
 
-	if roomId == 0 || !s.Roles.HasPermission(permission.KICK_MEMBERS) {
+	if roomId == 0 || !s.HasPermission(permission.KICK_MEMBERS) {
 		log.
 			WithFields(log.Fields{
 				"user_id": s.UserId,
@@ -389,14 +537,12 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	kickMsg := resource.ServerMessage{
 		Type: resource.SERVER_MESSAGE,
 		Target: resource.MessageTarget{
-			SessionIds: sessions,
+			UserIds: []model.UserId{targetUserId},
+			RoomId: roomId,
 		},
 		Data: resource.Packet{
 			Opcode: opcode.KickUser,
-			Data: KickMessage{
-				UserId: targetUserId,
-				RoomId: roomId,
-			},
+			Data: *data,
 		},
 	}
 
@@ -437,15 +583,10 @@ func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) {
 	h.removeClient(c, true)
 }
 
-func (h *Handlers) kickUser(msg *resource.Packet) {
-	data, ok := msg.Data.(KickMessage)
-
-	if !ok {
-		return
-	}
-
-	userId := data.UserId
-	roomId := data.RoomId
+func (h *Handlers) KickUser(msg *resource.ServerMessage) {
+	fUserId := msg.Data.Data.(float64)
+	userId := model.UserId(fUserId)
+	roomId := msg.Target.RoomId
 
 	m := h.app.GetRoomMgr()
 

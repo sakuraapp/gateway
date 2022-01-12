@@ -25,3 +25,26 @@ func (r *RoleRepository) Get(userId model.UserId, roomId model.RoomId) ([]model.
 
 	return roles, err
 }
+
+func (r *RoleRepository) Add(userRole *model.UserRole) error {
+	_, err := r.db.Model(userRole).
+		Column("id").
+		Where("user_id = ?", userRole.UserId).
+		Where("room_id = ?", userRole.RoomId).
+		Where("role_id = ?", userRole.RoleId).
+		OnConflict("DO NOTHING").
+		Returning("id").
+		SelectOrInsert()
+
+	return err
+}
+
+func (r *RoleRepository) Remove(userRole *model.UserRole) error {
+	_, err := r.db.Model(userRole).
+		Where("user_id = ?", userRole.UserId).
+		Where("room_id = ?", userRole.RoomId).
+		Where("role_id = ?", userRole.RoleId).
+		Delete()
+
+	return err
+}

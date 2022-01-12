@@ -69,7 +69,7 @@ func (u *UserRepository) GetRoomMembers(ids []model.UserId, roomId model.RoomId)
 		Join("LEFT JOIN discriminators AS discriminator ON discriminator.owner_id = ?", pg.Ident("user.id")).
 		Where("? in (?)", pg.Ident("user.id"), pg.In(ids)).
 		Relation("Roles", func(q *pg.Query) (*pg.Query, error) {
-			return q.Where("room_id = ?", roomId), nil
+			return q.Where("? = ?", pg.Ident("user_role.room_id"), roomId), nil
 		}).
 		Select()
 

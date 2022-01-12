@@ -24,6 +24,10 @@ func Init(app internal.App) {
 	m.Register(opcode.VideoSkip, h.HandleSkip)
 	m.Register(opcode.VideoEnd, h.HandleVideoEnd)
 	m.Register(opcode.KickUser, h.HandleKickUser)
+	m.Register(opcode.AddRole, h.HandleUpdateRole)
+	m.Register(opcode.RemoveRole, h.HandleUpdateRole)
 
-	m.RegisterServer(opcode.KickUser, h.kickUser)
+	m.RegisterServer(opcode.KickUser, h.KickUser)
+	m.RegisterServer(opcode.AddRole, h.UpdateRole)
+	m.RegisterServer(opcode.RemoveRole, h.UpdateRole)
 }
