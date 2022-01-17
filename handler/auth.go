@@ -21,7 +21,12 @@ func (h *Handlers) handleAuthFail(err error, client *client.Client) {
 
 func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	data := packet.DataMap()
-	token := data["token"].(string)
+	token, ok := data["token"].(string)
+
+	if !ok || len(token) == 0 {
+		h.handleAuthFail(nil, c) // todo: create an error for this
+		return
+	}
 
 	claims, err := h.app.GetJWT().Parse(token)
 
