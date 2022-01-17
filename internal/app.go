@@ -16,6 +16,7 @@ type App interface {
 	Context() context.Context
 	NodeId() string
 	GetConfig() *config.Config
+	GetBuilder() *resource.Builder
 	GetCrawler() *Crawler
 	GetJWT() *JWT
 	GetDB() *pg.DB

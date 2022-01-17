@@ -36,6 +36,7 @@ type Server struct {
 	ctx context.Context
 	ctxCancel context.CancelFunc
 	crawler *internal.Crawler
+	resourceBuilder *resource.Builder
 	jwt *internal.JWT
 	db *pg.DB
 	rdb *redis.Client
@@ -100,6 +101,23 @@ func New(conf config.Config) *Server {
 		log.WithError(err).Fatal("Failed to load public key")
 	}
 
+	s3Config := &shared.S3Config{
+		Bucket: conf.S3Bucket,
+		Region: conf.S3Region,
+		Endpoint: conf.S3Endpoint,
+		ForcePathStyle: conf.S3ForcePathStyle,
+	}
+	s3BaseUrl := shared.GetS3BaseUrl(s3Config)
+
+	resourceBuilder := resource.NewBuilder()
+	resourceBuilder.SetUserFormatter(func(user *resource.User) *resource.User {
+		if !user.Avatar.IsZero() {
+			user.Avatar.String = shared.ResolveS3URL(s3BaseUrl, user.Avatar.String)
+		}
+
+		return user
+	})
+
 	addr := fmt.Sprintf("0.0.0.0:%v", conf.Port)
 	serverConfig := nbhttp.Config{
 		Network: "tcp",
@@ -114,6 +132,7 @@ func New(conf config.Config) *Server {
 		ctx:  	  context.Background(),
 		ctxCancel: cancel,
 		crawler:  internal.NewCrawler(),
+		resourceBuilder: resourceBuilder,
 		taskPool: internal.NewTaskpool(&serverConfig),
 		jwt:      &internal.JWT{PublicKey: jwtPublicKey},
 		db:       db,
@@ -152,6 +171,10 @@ func (s *Server) NodeId() string {
 
 func (s *Server) GetConfig() *config.Config {
 	return &s.Config
+}
+
+func (s *Server) GetBuilder() *resource.Builder {
+	return s.resourceBuilder
 }
 
 func (s *Server) GetCrawler() *internal.Crawler {

@@ -49,6 +49,16 @@ func main() {
 		nodeId = uuid.NewString()
 	}
 
+	s3Region := os.Getenv("S3_REGION")
+	s3Bucket := os.Getenv("S3_BUCKET")
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	s3ForcePathStyleStr := os.Getenv("S3_FORCE_PATH_STYLE")
+	s3ForcePathStyle := false
+
+	if s3ForcePathStyleStr == "1" {
+		s3ForcePathStyle = true
+	}
+
 	s := server.New(config.Config{
 		Env: envType,
 		Port: port,
@@ -61,6 +71,10 @@ func main() {
 		RedisAddr: redisAddr,
 		RedisPassword: redisPassword,
 		RedisDatabase: redisDb,
+		S3Bucket: &s3Bucket,
+		S3Region: &s3Region,
+		S3Endpoint: &s3Endpoint,
+		S3ForcePathStyle: &s3ForcePathStyle,
 	})
 
 	if err := s.Start(); err != nil {

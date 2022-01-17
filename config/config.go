@@ -19,6 +19,10 @@ type Config struct {
 	RedisAddr string
 	RedisPassword string
 	RedisDatabase int
+	S3Region *string
+	S3Bucket *string
+	S3Endpoint *string
+	S3ForcePathStyle *bool
 }
 
 func (c *Config) IsDev() bool {

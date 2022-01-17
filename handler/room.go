@@ -150,10 +150,11 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
+	builder := h.app.GetBuilder()
 	members := make([]*resource.RoomMember, 0, len(roomMembers))
 
 	for _, roomMember := range roomMembers {
-		member := resource.NewRoomMember(&roomMember)
+		member := builder.NewRoomMember(&roomMember)
 		members = append(members, member)
 	}
 
@@ -175,7 +176,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 	joinRoomData := map[string]interface{}{
 		"status": 200,
-		"room": resource.NewRoom(room),
+		"room": builder.NewRoom(room),
 		"members": members,
 		"permissions": roles.Permissions(),
 	}
