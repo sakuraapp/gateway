@@ -81,6 +81,9 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		}
 	}
 
+	log.Debugf("Join Room: %+v", room)
+
+	s.RoomId = roomId // have to do this before setting any of the redis data because if the client disconnects in the middle, those requests will be canceled, so we need to reset them by handling the disconnection
 	sessionId := s.Id
 
 	usersKey := fmt.Sprintf(constant.RoomUsersFmt, roomId)
@@ -98,10 +101,6 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	if err != nil {
 		panic(err)
 	}
-
-	log.Debugf("Join Room: %+v", room)
-
-	s.RoomId = roomId
 
 	m := h.app.GetRoomMgr()
 	r := m.Get(roomId)
