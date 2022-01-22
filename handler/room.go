@@ -2,6 +2,8 @@ package handler
 
 import (
 	"fmt"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sakuraapp/gateway/client"
 	"github.com/sakuraapp/shared/constant"
@@ -47,25 +49,51 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	userId := s.UserId
 	strUserId := strconv.FormatInt(int64(userId), 10)
 
+	builder := h.app.GetBuilder()
 	rdb := h.app.GetRedis()
 
 	if room.Private && !alreadyInRoom && !isRoomOwner {
-		inviteKey := fmt.Sprintf(constant.RoomInviteFmt, roomId)
-		inviteExists, err := rdb.HExists(ctx, inviteKey, strUserId).Result()
+		joinRequestsKey := fmt.Sprintf(constant.RoomJoinRequestsFmt, roomId)
 
-		if err != nil || !inviteExists {
+		var joinRequest int
+		err = rdb.HGet(ctx, joinRequestsKey, strUserId).Scan(&joinRequest)
+
+		if joinRequest == 1 {
+			err = rdb.HDel(ctx, joinRequestsKey, strUserId).Err()
+
+			if err != nil {
+				panic(err)
+			}
+		} else if err == redis.Nil {
+			// this runs if a request did not exist at all
+			var user *model.User
+			user, err = h.app.GetRepos().User.FetchWithDiscriminator(userId)
+
+			if err != nil {
+				panic(err)
+			}
+
+			err = rdb.HSet(ctx, joinRequestsKey, strUserId, "0").Err()
+
+			if err != nil {
+				panic(err)
+			}
+
 			reqMsg := resource.ServerMessage{
-				Type: resource.NORMAL_MESSAGE,
 				Target: resource.MessageTarget{
-					UserIds: []model.UserId{userId},
+					Permissions: permission.MANAGE_ROOM,
 				},
 				Data: resource.Packet{
-					Opcode: opcode.RoomJoinRequest,
-					Data: userId,
+					Opcode: opcode.AddNotification,
+					Data: resource.Notification{
+						Id: uuid.NewString(),
+						Type: resource.NotificationJoinRequest,
+						Data: builder.NewUser(user),
+					},
 				},
 			}
 
-			err = h.app.Dispatch(reqMsg)
+			err = h.app.DispatchRoom(roomId, reqMsg)
 
 			if err != nil {
 				panic(err)
@@ -73,11 +101,13 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 
 			return
 		} else {
-			err = rdb.HDel(ctx, inviteKey, strUserId).Err()
+			// this runs if there was an error, or an existing request
 
 			if err != nil {
 				panic(err)
 			}
+
+			return // don't send a new request if there's an existing one
 		}
 	}
 
@@ -149,7 +179,6 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		panic(err)
 	}
 
-	builder := h.app.GetBuilder()
 	members := make([]*resource.RoomMember, 0, len(roomMembers))
 
 	for _, roomMember := range roomMembers {
@@ -620,5 +649,55 @@ func (h *Handlers) KickUser(msg *resource.ServerMessage) {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.Client) {
+	s := c.Session
+	roomId := s.RoomId
+
+	if roomId == 0 || !c.Session.HasPermission(permission.MANAGE_ROOM) {
+		log.
+			WithFields(log.Fields{
+				"user_id": s.UserId,
+				"room_id": roomId,
+			}).
+			Warn("Attempted to accept a user's join request without the correct permissions")
+
+		return
+	}
+
+	fUserId, ok := data.Data.(float64)
+
+	if !ok {
+		return
+	}
+
+	targetUserId := model.UserId(fUserId)
+	strUserId := strconv.FormatInt(int64(fUserId), 10)
+
+	ctx := c.Context()
+	rdb := h.app.GetRedis()
+
+	joinRequestsKey := fmt.Sprintf(constant.RoomJoinRequestsFmt, roomId)
+
+	err := rdb.HSet(ctx, joinRequestsKey, strUserId, "1").Err()
+
+	if err != nil {
+		panic(err)
+	}
+
+	msg := resource.ServerMessage{
+		Type: resource.NORMAL_MESSAGE,
+		Target: resource.MessageTarget{
+			UserIds: []model.UserId{targetUserId},
+		},
+		Data: resource.BuildPacket(opcode.RoomJoinRequest, roomId),
+	}
+
+	err = h.app.Dispatch(msg)
+
+	if err != nil {
+		panic(err)
 	}
 }
