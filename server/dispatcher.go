@@ -79,6 +79,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 
 		return s.rdb.Publish(s.ctx, constant.BroadcastChName, msg).Err()
 	case resource.NORMAL_MESSAGE:
+		fallthrough
 	case resource.SERVER_MESSAGE:
 		// note: both normal and server messages can be dispatched toward certain users
 		// todo: re-investigate how server messages should be targeted
@@ -116,7 +117,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 
 		results, err = pipe.Exec(s.ctx)
 
-		if err != nil {
+		if err != nil && err != redis.Nil {
 			return err
 		}
 
@@ -131,7 +132,13 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 		var nodeKey string
 
 		for _, result := range results {
-			nodeId := result.(*redis.StringCmd).Val()
+			cmd := result.(*redis.StringCmd)
+
+			if cmd.Err() == redis.Nil {
+				continue
+			}
+
+			nodeId := cmd.Val()
 			
 			if !nodes[nodeId] {
 				nodes[nodeId] = true
@@ -169,6 +176,10 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 		defer mu.Unlock()
 
 		for c := range r.Clients() {
+			if c.Session.Roles != nil && !c.Session.HasPermission(msg.Target.Permissions) {
+				continue
+			}
+
 			if !msg.Target.IgnoredSessionIds[c.Session.Id] {
 				err = c.Write(msg.Data)
 
