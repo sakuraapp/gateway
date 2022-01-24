@@ -12,6 +12,7 @@ import (
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net/url"
 )
 
@@ -38,7 +39,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 
 	itemInfo, err := h.app.GetCrawler().Get(inputUrl)
 
-	if err != nil {
+	if err != nil && err != io.EOF {
 		panic(err)
 	}
 
