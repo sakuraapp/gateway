@@ -2,8 +2,6 @@ module github.com/sakuraapp/gateway
 
 go 1.16
 
-replace github.com/sakuraapp/shared => /Users/jackie/Documents/Projects/Sakura/Source/shared
-
 require (
 	github.com/go-pg/pg/extra/pgdebug v0.2.0
 	github.com/go-pg/pg/v10 v10.10.6
