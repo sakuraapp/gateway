@@ -53,11 +53,7 @@ func (c *Client) Send(op opcode.Opcode, data interface{}) error {
 
 func (c *Client) Disconnect() {
 	c.ctxCancel()
-	err := c.conn.Close()
-
-	if err != nil {
-		panic(err)
-	}
+	defer c.conn.Close()
 }
 
 func NewClient(ctx context.Context, conn *websocket.Conn, upgrader *websocket.Upgrader) *Client {

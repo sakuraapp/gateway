@@ -77,7 +77,15 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				}
 
 				s.Id = sessionId
-				h.app.GetClientMgr().UpdateSession(c, s)
+
+				clientMgr := h.app.GetClientMgr()
+				oldClient := clientMgr.Get(sessionId)
+
+				if oldClient != nil {
+					oldClient.Disconnect()
+				}
+
+				clientMgr.UpdateSession(c, s)
 
 				pipe.Persist(ctx, key)
 
@@ -115,7 +123,8 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		h.handleAuthFail(err, c)
+		return
 	}
 
 	log.Debugf("User: %+v", user)
@@ -124,6 +133,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 
 	if err != nil {
 		h.handleAuthFail(err, c)
+		return
 	}
 
 	if s.RoomId != 0 {

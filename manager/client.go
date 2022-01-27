@@ -47,6 +47,10 @@ func (m *ClientManager) Remove(c *client.Client) {
 	delete(m.clients, c.Session.Id)
 }
 
+func (m *ClientManager) Get(sessionId string) *client.Client {
+	return m.clients[sessionId]
+}
+
 func (m *ClientManager) UpdateSession(c *client.Client, session *client.Session) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
