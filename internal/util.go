@@ -9,8 +9,16 @@ import (
 )
 
 func GetDomain(url *url.URL) string {
+	var domain string
+
 	parts := strings.Split(url.Hostname(), ".")
-	domain := strings.Join(parts[len(parts) - 2:], ".")
+	partsLen := len(parts)
+
+	if partsLen > 1 {
+		domain = strings.Join(parts[partsLen - 2:], ".")
+	} else {
+		domain = parts[0]
+	}
 
 	return domain
 }
