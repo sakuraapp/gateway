@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/internal"
+	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/pkg/util"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
@@ -31,7 +31,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 		return
 	}
 
-	switch internal.GetDomain(u) {
+	switch util.GetDomain(u) {
 	case "youtube.com":
 		if u.Path == "/watch" {
 			videoId := u.Query().Get("v")

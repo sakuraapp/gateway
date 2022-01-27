@@ -1,16 +1,16 @@
 package manager
 
 import (
-	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/shared/model"
 	"sync"
 )
 
-type SessionMap = map[string]*client.Session // map indexed by session id containing session pointers
+type SessionMap = map[string]*client.Session      // map indexed by session id containing session pointers
 type UserSessionMap = map[model.UserId]SessionMap // map indexed by user id containing each session for that user
 
 type SessionManager struct {
-	mu sync.Mutex
+	mu       sync.Mutex
 	sessions UserSessionMap
 }
 

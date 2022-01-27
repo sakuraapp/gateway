@@ -5,7 +5,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
-	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"

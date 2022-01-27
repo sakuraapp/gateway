@@ -2,7 +2,7 @@ package manager
 
 import (
 	"github.com/lesismal/nbio/nbhttp/websocket"
-	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/internal/client"
 	"sync"
 	"time"
 )

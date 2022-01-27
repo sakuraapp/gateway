@@ -12,12 +12,12 @@ import (
 	"github.com/lesismal/nbio/nbhttp/websocket"
 	"github.com/lesismal/nbio/taskpool"
 	"github.com/rs/cors"
-	"github.com/sakuraapp/gateway/client"
-	"github.com/sakuraapp/gateway/config"
-	"github.com/sakuraapp/gateway/handler"
-	"github.com/sakuraapp/gateway/internal"
-	"github.com/sakuraapp/gateway/manager"
-	"github.com/sakuraapp/gateway/repository"
+	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/handler"
+	manager2 "github.com/sakuraapp/gateway/internal/manager"
+	"github.com/sakuraapp/gateway/internal/repository"
+	"github.com/sakuraapp/gateway/pkg/config"
+	"github.com/sakuraapp/gateway/pkg/util"
 	shared "github.com/sakuraapp/shared/pkg"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
@@ -35,18 +35,18 @@ type Server struct {
 	server *nbhttp.Server
 	ctx context.Context
 	ctxCancel context.CancelFunc
-	crawler *internal.Crawler
+	crawler *util.Crawler
 	resourceBuilder *resource.Builder
-	jwt *internal.JWT
+	jwt *util.JWT
 	db *pg.DB
 	rdb *redis.Client
 	repos *repository.Repositories
 	cache *cache.Cache
-	clients *manager.ClientManager
-	sessions *manager.SessionManager
-	handlers *manager.HandlerManager
-	rooms *manager.RoomManager
-	subscriptions *manager.SubscriptionManager
+	clients *manager2.ClientManager
+	sessions *manager2.SessionManager
+	handlers *manager2.HandlerManager
+	rooms *manager2.RoomManager
+	subscriptions *manager2.SubscriptionManager
 	pubsub *redis.PubSub
 }
 
@@ -127,27 +127,27 @@ func New(conf config.Config) *Server {
 	}
 
 	s := &Server{
-		Config:   conf,
-		cors:     c,
-		ctx:  	  context.Background(),
-		ctxCancel: cancel,
-		crawler:  internal.NewCrawler(),
+		Config:          conf,
+		cors:            c,
+		ctx:             context.Background(),
+		ctxCancel:       cancel,
+		crawler:         util.NewCrawler(),
 		resourceBuilder: resourceBuilder,
-		taskPool: internal.NewTaskpool(&serverConfig),
-		jwt:      &internal.JWT{PublicKey: jwtPublicKey},
-		db:       db,
-		rdb:      rdb,
-		cache:    myCache,
-		repos: 	  repos,
-		clients:  manager.NewClientManager(),
-		sessions: manager.NewSessionManager(),
-		handlers: manager.NewHandlerManager(),
+		taskPool:        util.NewTaskpool(&serverConfig),
+		jwt:             &util.JWT{PublicKey: jwtPublicKey},
+		db:              db,
+		rdb:             rdb,
+		cache:           myCache,
+		repos:           repos,
+		clients:         manager2.NewClientManager(),
+		sessions:        manager2.NewSessionManager(),
+		handlers:        manager2.NewHandlerManager(),
 	}
 
 	s.initPubsub()
 
-	s.subscriptions = manager.NewSubscriptionManager(s.ctx, s.pubsub)
-	s.rooms = manager.NewRoomManager(s.subscriptions)
+	s.subscriptions = manager2.NewSubscriptionManager(s.ctx, s.pubsub)
+	s.rooms = manager2.NewRoomManager(s.subscriptions)
 
 	handler.Init(s)
 
@@ -177,11 +177,11 @@ func (s *Server) GetBuilder() *resource.Builder {
 	return s.resourceBuilder
 }
 
-func (s *Server) GetCrawler() *internal.Crawler {
+func (s *Server) GetCrawler() *util.Crawler {
 	return s.crawler
 }
 
-func (s *Server) GetJWT() *internal.JWT {
+func (s *Server) GetJWT() *util.JWT {
 	return s.jwt
 }
 
@@ -201,19 +201,19 @@ func (s *Server) GetCache() *cache.Cache {
 	return s.cache
 }
 
-func (s *Server) GetHandlerMgr() *manager.HandlerManager {
+func (s *Server) GetHandlerMgr() *manager2.HandlerManager {
 	return s.handlers
 }
 
-func (s *Server) GetClientMgr() *manager.ClientManager {
+func (s *Server) GetClientMgr() *manager2.ClientManager {
 	return s.clients
 }
 
-func (s *Server) GetSessionMgr() *manager.SessionManager {
+func (s *Server) GetSessionMgr() *manager2.SessionManager {
 	return s.sessions
 }
 
-func (s *Server) GetRoomMgr() *manager.RoomManager {
+func (s *Server) GetRoomMgr() *manager2.RoomManager {
 	return s.rooms
 }
 
@@ -273,7 +273,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 
 	u.OnMessage(func(conn *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.LastActive = time.Now()
-		err = conn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+		err = conn.SetReadDeadline(time.Now().Add(manager2.KeepAliveTimeout))
 
 		if err != nil {
 			panic(err)
@@ -298,14 +298,14 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 
 	u.SetPongHandler(func(conn *websocket.Conn, s string) {
 		c.LastActive = time.Now()
-		err = conn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+		err = conn.SetReadDeadline(time.Now().Add(manager2.KeepAliveTimeout))
 
 		if err != nil {
 			panic(err)
 		}
 	})
 
-	err = wsConn.SetReadDeadline(time.Now().Add(manager.KeepAliveTimeout))
+	err = wsConn.SetReadDeadline(time.Now().Add(manager2.KeepAliveTimeout))
 
 	if err != nil {
 		panic(err)

@@ -3,12 +3,12 @@ package config
 type envType string
 
 const (
-	EnvDEV envType = "DEV"
+	EnvDEV  envType = "DEV"
 	EnvPROD envType = "PROD"
 )
 
 type Config struct {
-	Env envType
+	Env  envType
 	Port string
 	NodeId string
 	AllowedOrigins []string

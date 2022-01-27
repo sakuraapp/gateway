@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"

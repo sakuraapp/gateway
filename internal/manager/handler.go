@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"github.com/sakuraapp/gateway/client"
+	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 )
@@ -19,13 +19,13 @@ type ServerHandlerList []ServerHandlerFunc
 type ServerHandlerMap map[opcode.Opcode]ServerHandlerList
 
 type HandlerManager struct {
-	handlers HandlerMap
+	handlers       HandlerMap
 	serverHandlers ServerHandlerMap
 }
 
 func NewHandlerManager() *HandlerManager {
 	return &HandlerManager{
-		handlers: HandlerMap{},
+		handlers:       HandlerMap{},
 		serverHandlers: ServerHandlerMap{},
 	}
 }
