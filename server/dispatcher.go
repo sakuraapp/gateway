@@ -167,6 +167,7 @@ func (s *Server) Dispatch(msg resource.ServerMessage) error {
 }
 
 func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessage) error {
+	perms := msg.Target.Permissions
 	r := s.rooms.Get(roomId)
 	var err error
 
@@ -176,7 +177,7 @@ func (s *Server) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessa
 		defer mu.Unlock()
 
 		for c := range r.Clients() {
-			if c.Session.Roles != nil && !c.Session.HasPermission(msg.Target.Permissions) {
+			if perms > 0 && c.Session.Roles != nil && !c.Session.HasPermission(perms) {
 				continue
 			}
 
