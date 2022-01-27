@@ -33,8 +33,10 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 
 	switch internal.GetDomain(u) {
 	case "youtube.com":
-		videoId := u.Query().Get("v")
-		rawUrl = fmt.Sprintf("https://www.youtube.com/embed/%v", videoId)
+		if u.Path == "/watch" {
+			videoId := u.Query().Get("v")
+			rawUrl = fmt.Sprintf("https://www.youtube.com/embed/%v", videoId)
+		}
 	}
 
 	itemInfo, err := h.app.GetCrawler().Get(inputUrl)
@@ -42,6 +44,8 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 	if err != nil && err != io.EOF {
 		panic(err)
 	}
+
+	// note that empty titles & icons are handled client-side
 
 	itemInfo.Url = rawUrl
 	item := resource.MediaItem{
