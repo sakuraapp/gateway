@@ -5,7 +5,7 @@ import (
 	"github.com/go-pg/pg/v10"
 	"github.com/go-redis/cache/v8"
 	"github.com/go-redis/redis/v8"
-	manager2 "github.com/sakuraapp/gateway/internal/manager"
+	"github.com/sakuraapp/gateway/internal/manager"
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/config"
 	"github.com/sakuraapp/gateway/pkg/util"
@@ -26,10 +26,10 @@ type App interface {
 	GetRepos() *repository.Repositories
 	GetRedis() *redis.Client
 	GetCache() *cache.Cache
-	GetHandlerMgr() *manager2.HandlerManager
-	GetClientMgr() *manager2.ClientManager
-	GetSessionMgr() *manager2.SessionManager
-	GetRoomMgr() *manager2.RoomManager
+	GetHandlerMgr() *manager.HandlerManager
+	GetClientMgr() *manager.ClientManager
+	GetSessionMgr() *manager.SessionManager
+	GetRoomMgr() *manager.RoomManager
 	Dispatch(msg resource.ServerMessage) error
 	DispatchLocal(msg resource.ServerMessage) error
 	DispatchRoom(roomId model.RoomId, msg resource.ServerMessage) error
