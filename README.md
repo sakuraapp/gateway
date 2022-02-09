@@ -18,6 +18,6 @@ ALLOWED_ORIGINS="http://hello.world, https://foo.bar"
 
 ## Usage
 To run in a development environment:
-```
-go run main.go
+```shell
+go run cmd/gateway/main.go
 ```
