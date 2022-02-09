@@ -27,7 +27,7 @@ func (s *SubscriptionManager) increment(key string, count int) error {
 
 	s.subscriptions[key] += count
 
-	if s.subscriptions[key] == 1 {
+	if s.subscriptions[key] == 1 && count == 1 {
 		return s.pubsub.Subscribe(s.ctx, key)
 	} else if s.subscriptions[key] == 0 {
 		return s.pubsub.Unsubscribe(s.ctx, key)

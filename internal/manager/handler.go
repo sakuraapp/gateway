@@ -2,6 +2,7 @@ package manager
 
 import (
 	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 )
@@ -10,7 +11,7 @@ import (
 // Server handles handle server messages, i.e. messages from other servers
 // todo: rework this to use generics once they're out in stable
 
-type HandlerFunc func(packet *resource.Packet, client *client.Client)
+type HandlerFunc func(packet *resource.Packet, client *client.Client) gateway.Error
 type HandlerList []HandlerFunc
 type HandlerMap map[opcode.Opcode]HandlerList
 
@@ -42,8 +43,19 @@ func (h *HandlerManager) Handle(packet *resource.Packet, client *client.Client) 
 	list := h.handlers[packet.Opcode]
 
 	if list != nil {
+		var gErr gateway.Error
+		var err error
+
 		for _, handler := range list {
-			handler(packet, client)
+			gErr = handler(packet, client)
+
+			if gErr != nil {
+				err = gErr.Handle(client)
+
+				if err != nil {
+					panic(err)
+				}
+			}
 		}
 	}
 }

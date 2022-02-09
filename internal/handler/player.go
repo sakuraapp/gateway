@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	"github.com/sakuraapp/shared/resource/permission"
-	log "github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -25,7 +25,7 @@ func buildState(state *resource.PlayerState) resource.Packet {
 	return resource.BuildPacket(opcode.PlayerState, data)
 }
 
-func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client) gateway.Error {
 	if c.Session.HasPermission(permission.VIDEO_REMOTE) {
 		var t time.Time
 
@@ -58,7 +58,7 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 		err := h.app.DispatchRoom(roomId, msg)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorDispatch, err)
 		}
 
 		err = rdb.HSet(ctx,
@@ -72,12 +72,14 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 		).Err()
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) gateway.Error {
 	if c.Session.HasPermission(permission.VIDEO_REMOTE) {
 		ctx := h.app.Context()
 		rdb := h.app.GetRedis()
@@ -96,36 +98,44 @@ func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) {
 		err := h.app.DispatchRoom(roomId, msg)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorDispatch, err)
 		}
 
 		err = rdb.HSet(ctx, stateKey, "currentTime", currentTime).Err()
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleSkip(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleSkip(data *resource.Packet, c *client.Client) gateway.Error {
 	if !c.Session.HasPermission(permission.VIDEO_REMOTE) {
-		return
+		return nil
 	}
 
-	h.nextItem(c.Context(), c.Session.RoomId)
+	err := h.nextItem(c.Context(), c.Session.RoomId)
+
+	if err != nil {
+		return gateway.NewError(gateway.ErrorNextItem, err) // todo: rethink this and whether nextItem should return a regular error or a gateway error
+	}
+
+	return nil
 }
 
-func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 {
-		return
+		return nil
 	}
 
 	videoId, ok := data.Data.(string)
 
 	if !ok {
-		return
+		return nil
 	}
 
 	ctx := c.Context()
@@ -135,7 +145,11 @@ func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) {
 	currVideoId, err := rdb.HGet(ctx, currentItemKey, "id").Result()
 
 	if err != nil {
-		panic(err)
+		if err == redis.Nil {
+			return nil
+		} else {
+			return gateway.NewError(gateway.ErrorRedis, err)
+		}
 	}
 
 	if currVideoId == videoId {
@@ -151,28 +165,33 @@ func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) {
 		_, err = pipe.Exec(ctx)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 
 		ackCount := ackCountCmd.Val()
 		totalCount := totalCountCmd.Val()
 
 		if ackCount >= totalCount / 2 {
-			h.nextItem(h.app.Context(), roomId)
+			err = h.nextItem(h.app.Context(), roomId)
+
+			if err != nil {
+				return gateway.NewError(gateway.ErrorNextItem, err)
+			}
 		}
 	}
+
+	return nil
 }
 
 
-func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
+func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	item, err := h.popItem(ctx, roomId)
 
 	if err != nil {
 		if err == redis.Nil {
 			item = nil
 		} else {
-			log.WithError(err).Error("Failed to play next queue item")
-			return
+			return err
 		}
 	}
 
@@ -184,7 +203,7 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
 		err = h.app.DispatchRoom(roomId, queueRemoveMsg)
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 	} else {
 		rdb := h.app.GetRedis()
@@ -194,14 +213,14 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) {
 		exists, err = rdb.Exists(ctx, currentItemKey).Result()
 
 		if err != nil || exists == 0 {
-			return // don't skip if nothing is playing and nothing is in queue
+			return nil // don't skip if nothing is playing and nothing is in queue
 		}
 	}
 
-	h.setCurrentItem(ctx, roomId, item)
+	return h.setCurrentItem(ctx, roomId, item)
 }
 
-func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) {
+func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) error {
 	state := resource.PlayerState{
 		IsPlaying: false,
 		CurrentTime: 0,
@@ -215,13 +234,13 @@ func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item
 	err := h.app.DispatchRoom(roomId, setVideoMsg)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = h.dispatchState(roomId, &state)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	rdb := h.app.GetRedis()
@@ -252,9 +271,7 @@ func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item
 
 	_, err = pipe.Exec(ctx)
 
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
 func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource.PlayerState, error) {

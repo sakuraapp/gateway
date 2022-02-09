@@ -1,15 +1,15 @@
 package handler
 
 import (
-	"github.com/sakuraapp/gateway/internal/gateway"
+	"github.com/sakuraapp/gateway/internal/app"
 	"github.com/sakuraapp/shared/resource/opcode"
 )
 
 type Handlers struct {
-	app gateway.App
+	app app.App
 }
 
-func Init(app gateway.App) {
+func Init(app app.App) {
 	h := Handlers{app}
 	m := app.GetHandlerMgr()
 

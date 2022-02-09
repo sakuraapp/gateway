@@ -2,7 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"github.com/go-pg/pg/v10"
 	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
@@ -19,20 +21,19 @@ func (h *Handlers) handleAuthFail(err error, client *client.Client) {
 	client.Disconnect()
 }
 
-func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) gateway.Error {
 	data := packet.DataMap()
 	token, ok := data["token"].(string)
 
 	if !ok || len(token) == 0 {
-		h.handleAuthFail(nil, c) // todo: create an error for this
-		return
+		c.Disconnect() // invalid token
+		return nil
 	}
 
 	claims, err := h.app.GetJWT().Parse(token)
 
 	if err != nil {
-		h.handleAuthFail(err, c)
-		return
+		return gateway.NewAuthError(err)
 	}
 
 	ctx := c.Context()
@@ -43,8 +44,12 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	user, err := h.app.GetRepos().User.GetWithDiscriminator(ctx, userId)
 
 	if err != nil {
-		h.handleAuthFail(err, c)
-		return
+		if err == pg.ErrNoRows {
+			c.Disconnect()
+			return nil
+		} else {
+			return gateway.NewAuthError(err)
+		}
 	}
 
 	nodeId := h.app.NodeId()
@@ -69,11 +74,9 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 				s = &sess
 
 				if user.Id != s.UserId {
-					h.handleAuthFail(
-						fmt.Errorf("session hijack attempted: session owner %v - target user %v", s.UserId, user.Id),
-						c,
-					)
-					return
+					err = fmt.Errorf("session hijack attempted: session owner %v - target user %v", s.UserId, user.Id)
+
+					return gateway.NewAuthError(err)
 				}
 
 				s.Id = sessionId
@@ -123,8 +126,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		h.handleAuthFail(err, c)
-		return
+		return gateway.NewAuthError(err)
 	}
 
 	log.Debugf("User: %+v", user)
@@ -132,8 +134,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 	err = c.Send(opcode.Authenticate, AuthResponseData{SessionId: s.Id})
 
 	if err != nil {
-		h.handleAuthFail(err, c)
-		return
+		return gateway.NewAuthError(err)
 	}
 
 	if s.RoomId != 0 {
@@ -145,9 +146,11 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) {
 			c,
 		)
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) gateway.Error {
 	h.removeClient(c, false)
 
 	log.Debugf("OnDisconnect: %v", c.Session.Id)
@@ -167,6 +170,10 @@ func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) {
 	_, err := pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		log.WithError(err).
+			WithField("session_id", session.Id).
+			Error("Failed to destroy session")
 	}
+
+	return nil
 }

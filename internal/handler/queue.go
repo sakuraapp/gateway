@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/gateway/pkg/util"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
@@ -16,11 +17,11 @@ import (
 	"net/url"
 )
 
-func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 || !c.Session.HasPermission(permission.QUEUE_ADD) {
-		return
+		return nil
 	}
 
 	inputUrl := data.Data.(string)
@@ -28,7 +29,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 	u, err := url.Parse(rawUrl)
 
 	if err != nil {
-		return
+		return nil
 	}
 
 	switch util.GetDomain(u) {
@@ -42,7 +43,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 	itemInfo, err := h.app.GetCrawler().Get(inputUrl)
 
 	if err != nil && err != io.EOF {
-		panic(err)
+		return gateway.NewError(gateway.ErrorCrawler, err)
 	}
 
 	// note that empty titles & icons are handled client-side
@@ -64,15 +65,15 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 	pipe := rdb.Pipeline()
 
 	lenCmd := pipe.LLen(ctx, queueKey)
-	currentCmd := pipe.HExists(ctx, currentItemKey, "url")
+	currentCmd := pipe.Exists(ctx, currentItemKey)
 
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	if lenCmd.Val() > 0 || currentCmd.Val() {
+	if lenCmd.Val() > 0 || currentCmd.Val() == 1 {
 		// something else is already playing
 		pipe = rdb.Pipeline()
 
@@ -82,7 +83,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 		_, err = pipe.Exec(ctx)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 
 		queueAddMessage := resource.ServerMessage{
@@ -92,18 +93,24 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) {
 		err = h.app.DispatchRoom(roomId, queueAddMessage)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorDispatch, err)
 		}
 	} else {
-		h.setCurrentItem(h.app.Context(), roomId, &item)
+		err = h.setCurrentItem(h.app.Context(), roomId, &item)
+
+		if err != nil {
+			return gateway.NewError(gateway.ErrorSetCurrentItem, err)
+		}
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 {
-		return
+		return nil
 	}
 
 	queueKey := fmt.Sprintf(constant.RoomQueueFmt, roomId)
@@ -120,14 +127,14 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
 		err := rdb.HGet(ctx, queueItemsKey, id).Scan(&item)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 
 		userId := c.Session.UserId
 
 		if item.Author != userId {
 			log.WithField("user_id", userId).Warn("Detected an attempt to remove a queue item without permission")
-			return
+			return nil
 		}
 	}
 
@@ -139,7 +146,7 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
 	_, err := pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	queueRemoveMessage := resource.ServerMessage{
@@ -149,8 +156,10 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) {
 	err = h.app.DispatchRoom(roomId, queueRemoveMessage)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
+
+	return nil
 }
 
 func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource.MediaItem, error) {

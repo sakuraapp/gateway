@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sakuraapp/gateway/internal/client"
+	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/shared/constant"
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
@@ -21,11 +22,11 @@ type RoleUpdateMessage struct {
 	RoleId role.Id `json:"roleId" mapstructure:"roleId"`
 }
 
-func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gateway.Error {
 	fRoomId, ok := data.Data.(float64)
 
 	if !ok {
-		return
+		return nil
 	}
 
 	ctx := c.Context()
@@ -34,7 +35,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	room, err := h.app.GetRepos().Room.Get(ctx, roomId)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
 	s := c.Session
@@ -62,7 +63,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 			err = rdb.HDel(ctx, joinRequestsKey, strUserId).Err()
 
 			if err != nil {
-				panic(err)
+				return gateway.NewError(gateway.ErrorRedis, err)
 			}
 		} else if err == redis.Nil {
 			// this runs if a request did not exist at all
@@ -70,13 +71,13 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 			user, err = h.app.GetRepos().User.FetchWithDiscriminator(userId)
 
 			if err != nil {
-				panic(err)
+				return gateway.NewError(gateway.ErrorDatabase, err)
 			}
 
 			err = rdb.HSet(ctx, joinRequestsKey, strUserId, "0").Err()
 
 			if err != nil {
-				panic(err)
+				return gateway.NewError(gateway.ErrorRedis, err)
 			}
 
 			reqMsg := resource.ServerMessage{
@@ -96,18 +97,18 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 			err = h.app.DispatchRoom(roomId, reqMsg)
 
 			if err != nil {
-				panic(err)
+				return gateway.NewError(gateway.ErrorDispatch, err)
 			}
 
-			return
+			return nil
 		} else {
 			// this runs if there was an error, or an existing request
 
 			if err != nil {
-				panic(err)
+				return gateway.NewError(gateway.ErrorRedis, err)
 			}
 
-			return // don't send a new request if there's an existing one
+			return nil // don't send a new request if there's an existing one
 		}
 	}
 
@@ -129,7 +130,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	m := h.app.GetRoomMgr()
@@ -142,13 +143,13 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	err = r.Add(c)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorAddClient, err)
 	}
 
 	strUserIds, err := rdb.SMembers(ctx, usersKey).Result()
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	// todo: make this code not awful
@@ -176,7 +177,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	roomMembers, err := h.app.GetRepos().User.GetRoomMembers(userIds, roomId)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
 	members := make([]*resource.RoomMember, 0, len(roomMembers))
@@ -212,13 +213,13 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	err = h.app.DispatchRoom(roomId, addUserMessage)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
 	err = c.Send(opcode.JoinRoom, joinRoomData)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorClientSend, err)
 	}
 
 	currentItemKey := fmt.Sprintf(constant.RoomCurrentItemFmt, roomId)
@@ -226,18 +227,21 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 	vals, err := rdb.HGetAll(ctx, currentItemKey).Result()
 
 	if err != nil {
-		fmt.Println(err)
-		return
+		if err == redis.Nil {
+			return nil
+		} else {
+			return gateway.NewError(gateway.ErrorRedis, err)
+		}
 	}
 
 	intAuthor := int64(0)
 
 	if vals["author"] != "" {
 		intAuthor, err = strconv.ParseInt(vals["author"], 10, 64)
-	}
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			return gateway.NewError(gateway.ErrorParse, err)
+		}
 	}
 
 	currentItem := resource.MediaItem{
@@ -254,18 +258,20 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) {
 		err = c.Send(opcode.VideoSet, currentItem)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorClientSend, err)
 		}
 
 		err = h.sendStateToClient(c)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorSendState, err)
 		}
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -277,7 +283,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 			}).
 			Warn("Attempted to update a user's roles without the correct permissions")
 
-		return
+		return nil
 	}
 
 	var opts RoleUpdateMessage
@@ -285,23 +291,23 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 	err := mapstructure.Decode(data.Data, &opts)
 
 	if err != nil {
-		return
+		return gateway.NewError(gateway.ErrorParse, err)
 	}
 
 	if opts.UserId == s.UserId {
-		return
+		return nil
 	}
 
 	r := role.GetRole(opts.RoleId)
 
 	if r == nil {
-		return
+		return nil
 	}
 
 	myHighestRole := s.Roles.Max()
 
 	if r.Order() >= myHighestRole.Order() {
-		return
+		return nil
 	}
 
 	ctx := c.Context()
@@ -311,11 +317,11 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 	isInRoom, err := rdb.SIsMember(ctx, usersKey, opts.UserId).Result()
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	if !isInRoom {
-		return
+		return nil
 	}
 
 	roleRepo := h.app.GetRepos().Role
@@ -324,7 +330,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 		userRoles, err := roleRepo.Get(opts.UserId, roomId)
 
 		if err != nil {
-			panic(err)
+			return gateway.NewError(gateway.ErrorDatabase, err)
 		}
 
 		roles := model.BuildRoleManager(userRoles)
@@ -337,7 +343,8 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 					"target_user_id": opts.UserId,
 				}).
 				Warn("User tried to remove a role from another user with an equal or higher authority")
-			return
+
+			return nil
 		}
 	}
 
@@ -354,7 +361,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 	}
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
 	updateServerMsg := resource.ServerMessage{
@@ -369,7 +376,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 	err = h.app.Dispatch(updateServerMsg)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
 	updateMsg := resource.ServerMessage{
@@ -382,6 +389,12 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) {
 	}
 
 	err = h.app.DispatchRoom(roomId, updateMsg)
+
+	if err != nil {
+		return gateway.NewError(gateway.ErrorDispatch, err)
+	}
+
+	return nil
 }
 
 func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
@@ -390,6 +403,7 @@ func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
 	err := mapstructure.Decode(msg.Data.Data, &opts)
 
 	if err != nil {
+		log.WithError(err).Error("Failed to parse update role message")
 		return
 	}
 
@@ -413,18 +427,20 @@ func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
 		err = c.Send(opcode.UpdatePermissions, s.Roles.Permissions())
 
 		if err != nil {
-			panic(err)
+			log.WithField("session_id", s.Id).
+				WithError(err).
+				Error("Failed to send update permissions message")
 		}
 	}
 }
 
-func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
+func (h *Handlers) removeClient(c *client.Client, updateSession bool) error {
 	s := c.Session
 	userId := s.UserId
 	roomId := s.RoomId
 
 	if roomId == 0 {
-		return
+		return nil
 	}
 
 	var err error
@@ -436,7 +452,7 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 		err = r.Remove(c)
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		if r.NumClients() == 0 {
@@ -461,20 +477,20 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	sessionCount, err := rdb.SCard(ctx, userSessionsKey).Result()
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if sessionCount == 0 {
 		err = rdb.SRem(ctx, usersKey, userId).Err()
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		leaveMsg := resource.ServerMessage{
@@ -484,14 +500,16 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool)  {
 		err = h.app.DispatchRoom(roomId, leaveMsg)
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
 	s.RoomId = 0
+
+	return nil
 }
 
-func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
+func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -503,19 +521,19 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 			}).
 			Warn("Attempted to kick a user without the correct permissions")
 
-		return
+		return nil
 	}
 
 	fUserId, ok := data.Data.(float64)
 
 	if !ok {
-		return
+		return nil
 	}
 
 	targetUserId := model.UserId(fUserId)
 
 	if targetUserId == s.UserId {
-		return
+		return nil
 	}
 
 	ctx := c.Context()
@@ -526,17 +544,17 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	isInRoom, err := rdb.SIsMember(ctx, usersKey, targetUserId).Result()
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	if !isInRoom {
-		return
+		return nil
 	}
 
 	userRoles, err := h.app.GetRepos().Role.Get(targetUserId, roomId)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
 	roles := model.BuildRoleManager(userRoles)
@@ -551,14 +569,15 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 				"target_user_id": targetUserId,
 			}).
 			Warn("User tried to kick another user with an equal or higher authority")
-		return
+
+		return nil
 	}
 
 	userSessionsKey := fmt.Sprintf(constant.RoomUserSessionsFmt, roomId, targetUserId)
 	sessions, err := rdb.SMembers(ctx, userSessionsKey).Result()
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	kickMsg := resource.ServerMessage{
@@ -576,7 +595,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	err = h.app.Dispatch(kickMsg)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
 	pipe := rdb.Pipeline()
@@ -592,7 +611,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	_, err = pipe.Exec(ctx)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	leaveMsg := resource.ServerMessage{
@@ -602,12 +621,20 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client)  {
 	err = h.app.DispatchRoom(roomId, leaveMsg)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
+
+	return nil
 }
 
-func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) {
-	h.removeClient(c, true)
+func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) gateway.Error {
+	err := h.removeClient(c, true)
+
+	if err != nil {
+		return gateway.NewError(gateway.ErrorRemoveClient, err)
+	}
+
+	return nil
 }
 
 func (h *Handlers) KickUser(msg *resource.ServerMessage) {
@@ -616,30 +643,36 @@ func (h *Handlers) KickUser(msg *resource.ServerMessage) {
 	roomId := msg.Target.RoomId
 
 	m := h.app.GetRoomMgr()
+	r := m.Get(roomId)
+
+	if r == nil {
+		return
+	}
 
 	clients := h.app.GetClientMgr().Clients()
 	sessions := h.app.GetSessionMgr().GetByUserId(userId)
 
+	var c *client.Client
 	var err error
+
+	logger := log.WithField("room_id", roomId)
 
 	for sessionId, s := range sessions {
 		if s.RoomId != roomId {
 			continue
 		}
 
-		c := clients[sessionId]
-		r := m.Get(roomId)
+		c = clients[sessionId]
+		err = r.Remove(c)
 
-		if r != nil {
-			err = r.Remove(c)
+		if err != nil {
+			logger.WithField("session_id", sessionId).
+				WithError(err).
+				Error("Failed to kick user from room")
+		}
 
-			if err != nil {
-				panic(err)
-			}
-
-			if r.NumClients() == 0 {
-				m.Delete(roomId)
-			}
+		if r.NumClients() == 0 {
+			m.Delete(roomId)
 		}
 
 		s.RoomId = 0
@@ -647,12 +680,14 @@ func (h *Handlers) KickUser(msg *resource.ServerMessage) {
 		err = c.Send(opcode.KickUser, nil)
 
 		if err != nil {
-			panic(err)
+			logger.WithField("session_id", sessionId).
+				WithError(err).
+				Error("Failed to send kick message to a user")
 		}
 	}
 }
 
-func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.Client) {
+func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -664,13 +699,13 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 			}).
 			Warn("Attempted to accept a user's join request without the correct permissions")
 
-		return
+		return nil
 	}
 
 	fUserId, ok := data.Data.(float64)
 
 	if !ok {
-		return
+		return nil
 	}
 
 	targetUserId := model.UserId(fUserId)
@@ -684,7 +719,7 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 	err := rdb.HSet(ctx, joinRequestsKey, strUserId, "1").Err()
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
 	msg := resource.ServerMessage{
@@ -698,6 +733,8 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 	err = h.app.Dispatch(msg)
 
 	if err != nil {
-		panic(err)
+		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
+
+	return nil
 }

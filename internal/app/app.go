@@ -1,4 +1,4 @@
-package gateway
+package app
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"github.com/sakuraapp/shared/model"
 	"github.com/sakuraapp/shared/resource"
 )
+
+// note: this file has to be in a package of its own because it can't be imported in most places (or it will cause a cyclic dependency)
 
 type App interface {
 	Context() context.Context
