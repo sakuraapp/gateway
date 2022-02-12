@@ -2,15 +2,15 @@ package repository
 
 import (
 	"github.com/go-pg/pg/v10"
-	model2 "github.com/sakuraapp/shared/pkg/model"
+	"github.com/sakuraapp/shared/pkg/model"
 )
 
 type RoleRepository struct {
 	db *pg.DB
 }
 
-func (r *RoleRepository) Get(userId model2.UserId, roomId model2.RoomId) ([]model2.UserRole, error) {
-	var roles []model2.UserRole
+func (r *RoleRepository) Get(userId model.UserId, roomId model.RoomId) ([]model.UserRole, error) {
+	var roles []model.UserRole
 	err := r.db.Model(&roles).
 		Column("id", "role_id").
 		Where("user_id = ?", userId).
@@ -20,13 +20,13 @@ func (r *RoleRepository) Get(userId model2.UserId, roomId model2.RoomId) ([]mode
 
 	if err == pg.ErrNoRows {
 		err = nil
-		roles = []model2.UserRole{}
+		roles = []model.UserRole{}
 	}
 
 	return roles, err
 }
 
-func (r *RoleRepository) Add(userRole *model2.UserRole) error {
+func (r *RoleRepository) Add(userRole *model.UserRole) error {
 	_, err := r.db.Model(userRole).
 		Column("id").
 		Where("user_id = ?", userRole.UserId).
@@ -39,7 +39,7 @@ func (r *RoleRepository) Add(userRole *model2.UserRole) error {
 	return err
 }
 
-func (r *RoleRepository) Remove(userRole *model2.UserRole) error {
+func (r *RoleRepository) Remove(userRole *model.UserRole) error {
 	_, err := r.db.Model(userRole).
 		Where("user_id = ?", userRole.UserId).
 		Where("room_id = ?", userRole.RoomId).
