@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/sakuraapp/gateway/internal/config"
 	"github.com/sakuraapp/gateway/internal/server"
-	"github.com/sakuraapp/gateway/pkg/config"
 	sharedUtil "github.com/sakuraapp/shared/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"os"
