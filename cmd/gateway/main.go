@@ -5,10 +5,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sakuraapp/gateway/internal/server"
 	"github.com/sakuraapp/gateway/pkg/config"
+	sharedUtil "github.com/sakuraapp/shared/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
-	"strings"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 		envType = config.EnvPROD
 	}
 
-	allowedOrigins := strings.Split(strings.ToLower(os.Getenv("ALLOWED_ORIGINS")), ", ")
+	allowedOrigins := sharedUtil.ParseAllowedOrigins(os.Getenv("ALLOWED_ORIGINS"))
 
 	redisAddr := os.Getenv("REDIS_ADDR")
 	redisPassword := os.Getenv("REDIS_PASSWORD")

@@ -18,7 +18,8 @@ import (
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/config"
 	"github.com/sakuraapp/gateway/pkg/util"
-	shared "github.com/sakuraapp/shared/pkg"
+	"github.com/sakuraapp/shared/pkg/crypto"
+	sharedUtil "github.com/sakuraapp/shared/pkg/util"
 	"github.com/sakuraapp/shared/resource"
 	"github.com/sakuraapp/shared/resource/opcode"
 	log "github.com/sirupsen/logrus"
@@ -95,24 +96,24 @@ func New(conf config.Config) *Server {
 
 	repos := repository.Init(db, myCache)
 
-	jwtPublicKey, err := shared.LoadRSAPublicKey(conf.JWTPublicPath)
+	jwtPublicKey, err := crypto.LoadRSAPublicKey(conf.JWTPublicPath)
 
 	if err != nil {
 		log.WithError(err).Fatal("Failed to load public key")
 	}
 
-	s3Config := &shared.S3Config{
+	s3Config := &sharedUtil.S3Config{
 		Bucket: conf.S3Bucket,
 		Region: conf.S3Region,
 		Endpoint: conf.S3Endpoint,
 		ForcePathStyle: conf.S3ForcePathStyle,
 	}
-	s3BaseUrl := shared.GetS3BaseUrl(s3Config)
+	s3BaseUrl := sharedUtil.GetS3BaseUrl(s3Config)
 
 	resourceBuilder := resource.NewBuilder()
 	resourceBuilder.SetUserFormatter(func(user *resource.User) *resource.User {
 		if !user.Avatar.IsZero() {
-			user.Avatar.String = shared.ResolveS3URL(s3BaseUrl, user.Avatar.String)
+			user.Avatar.String = sharedUtil.ResolveS3URL(s3BaseUrl, user.Avatar.String)
 		}
 
 		return user
