@@ -3,7 +3,7 @@ package gateway
 import (
 	"github.com/google/uuid"
 	"github.com/sakuraapp/gateway/internal/client"
-	"github.com/sakuraapp/shared/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	log "github.com/sirupsen/logrus"
 )
 

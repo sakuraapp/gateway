@@ -3,19 +3,19 @@ package manager
 import (
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
+	resource2 "github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 )
 
 // Normal handlers handle client messages
 // Server handles handle server messages, i.e. messages from other servers
 // todo: rework this to use generics once they're out in stable
 
-type HandlerFunc func(packet *resource.Packet, client *client.Client) gateway.Error
+type HandlerFunc func(packet *resource2.Packet, client *client.Client) gateway.Error
 type HandlerList []HandlerFunc
 type HandlerMap map[opcode.Opcode]HandlerList
 
-type ServerHandlerFunc func(packet *resource.ServerMessage)
+type ServerHandlerFunc func(packet *resource2.ServerMessage)
 type ServerHandlerList []ServerHandlerFunc
 type ServerHandlerMap map[opcode.Opcode]ServerHandlerList
 
@@ -39,7 +39,7 @@ func (h *HandlerManager) Register(op opcode.Opcode, fn HandlerFunc)  {
 	}
 }
 
-func (h *HandlerManager) Handle(packet *resource.Packet, client *client.Client) {
+func (h *HandlerManager) Handle(packet *resource2.Packet, client *client.Client) {
 	list := h.handlers[packet.Opcode]
 
 	if list != nil {
@@ -68,7 +68,7 @@ func (h *HandlerManager) RegisterServer(op opcode.Opcode, fn ServerHandlerFunc) 
 	}
 }
 
-func (h *HandlerManager) HandleServer(msg *resource.ServerMessage) {
+func (h *HandlerManager) HandleServer(msg *resource2.ServerMessage) {
 	list := h.serverHandlers[msg.Data.Opcode]
 
 	if list != nil {

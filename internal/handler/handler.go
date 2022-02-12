@@ -2,7 +2,7 @@ package handler
 
 import (
 	"github.com/sakuraapp/gateway/internal/app"
-	"github.com/sakuraapp/shared/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 )
 
 type Handlers struct {

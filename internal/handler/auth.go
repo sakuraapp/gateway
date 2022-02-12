@@ -5,10 +5,10 @@ import (
 	"github.com/go-pg/pg/v10"
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/constant"
+	"github.com/sakuraapp/shared/pkg/model"
+	"github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -141,7 +141,7 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) gateway
 		h.HandleJoinRoom(
 			&resource.Packet{
 				Opcode: opcode.JoinRoom,
-				Data: float64(s.RoomId),
+				Data:   float64(s.RoomId),
 			},
 			c,
 		)

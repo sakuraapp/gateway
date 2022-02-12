@@ -3,9 +3,9 @@ package server
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
-	"github.com/sakuraapp/shared/resource"
+	"github.com/sakuraapp/shared/pkg/constant"
+	"github.com/sakuraapp/shared/pkg/model"
+	"github.com/sakuraapp/shared/pkg/resource"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )

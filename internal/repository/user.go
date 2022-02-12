@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-pg/pg/v10"
 	"github.com/go-redis/cache/v8"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
+	"github.com/sakuraapp/shared/pkg/constant"
+	model2 "github.com/sakuraapp/shared/pkg/model"
 )
 
 type UserRepository struct {
@@ -14,8 +14,8 @@ type UserRepository struct {
 	cache *cache.Cache
 }
 
-func (u *UserRepository) GetWithDiscriminator(ctx context.Context, id model.UserId) (*model.User, error) {
-	user := new(model.User)
+func (u *UserRepository) GetWithDiscriminator(ctx context.Context, id model2.UserId) (*model2.User, error) {
+	user := new(model2.User)
 
 	if err := u.cache.Once(&cache.Item{
 		Ctx:   ctx,
@@ -32,7 +32,7 @@ func (u *UserRepository) GetWithDiscriminator(ctx context.Context, id model.User
 	return user, nil
 }
 
-func (u *UserRepository) fetchWithDiscriminator(user *model.User, id model.UserId) (*model.User, error) {
+func (u *UserRepository) fetchWithDiscriminator(user *model2.User, id model2.UserId) (*model2.User, error) {
 	err := u.db.Model(user).
 		Column("user.*").
 		ColumnExpr("discriminator.value AS discriminator").
@@ -43,14 +43,14 @@ func (u *UserRepository) fetchWithDiscriminator(user *model.User, id model.UserI
 	return user, err
 }
 
-func (u *UserRepository) FetchWithDiscriminator(id model.UserId) (*model.User, error) {
-	user := new(model.User)
+func (u *UserRepository) FetchWithDiscriminator(id model2.UserId) (*model2.User, error) {
+	user := new(model2.User)
 
 	return u.fetchWithDiscriminator(user, id)
 }
 
-func (u *UserRepository) GetUsersWithDiscriminators(ids []model.UserId) ([]model.User, error) {
-	var users []model.User
+func (u *UserRepository) GetUsersWithDiscriminators(ids []model2.UserId) ([]model2.User, error) {
+	var users []model2.User
 	err := u.db.Model(&users).
 		Column("user.*").
 		ColumnExpr("discriminator.value AS discriminator").
@@ -61,8 +61,8 @@ func (u *UserRepository) GetUsersWithDiscriminators(ids []model.UserId) ([]model
 	return users, err
 }
 
-func (u *UserRepository) GetRoomMembers(ids []model.UserId, roomId model.RoomId) ([]model.RoomMember, error) {
-	var members []model.RoomMember
+func (u *UserRepository) GetRoomMembers(ids []model2.UserId, roomId model2.RoomId) ([]model2.RoomMember, error) {
+	var members []model2.RoomMember
 	err := u.db.Model(&members).
 		Column("user.*").
 		ColumnExpr("discriminator.value AS discriminator").

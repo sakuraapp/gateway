@@ -6,26 +6,26 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
-	"github.com/sakuraapp/shared/resource/permission"
+	"github.com/sakuraapp/shared/pkg/constant"
+	"github.com/sakuraapp/shared/pkg/model"
+	resource2 "github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/resource/permission"
 	"strconv"
 	"time"
 )
 
-func buildState(state *resource.PlayerState) resource.Packet {
+func buildState(state *resource2.PlayerState) resource2.Packet {
 	data := map[string]interface{}{
 		"playing": state.IsPlaying,
 		"currentTime": state.CurrentTime,
 		"playbackStart": state.PlaybackStart,
 	}
 
-	return resource.BuildPacket(opcode.PlayerState, data)
+	return resource2.BuildPacket(opcode.PlayerState, data)
 }
 
-func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleSetPlayerState(data *resource2.Packet, c *client.Client) gateway.Error {
 	if c.Session.HasPermission(permission.VIDEO_REMOTE) {
 		var t time.Time
 
@@ -39,15 +39,15 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 		rdb := h.app.GetRedis()
 
 		m := data.DataMap()
-		state := resource.PlayerState{
+		state := resource2.PlayerState{
 			IsPlaying: m["playing"].(bool),
 			CurrentTime: m["currentTime"].(float64),
 			PlaybackStart: t,
 		}
 
-		msg := resource.ServerMessage{
-			Data: resource.BuildPacket(opcode.PlayerState, state),
-			Target: resource.MessageTarget{
+		msg := resource2.ServerMessage{
+			Data: resource2.BuildPacket(opcode.PlayerState, state),
+			Target: resource2.MessageTarget{
 				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
 			},
 		}
@@ -79,15 +79,15 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 	return nil
 }
 
-func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleSeek(data *resource2.Packet, c *client.Client) gateway.Error {
 	if c.Session.HasPermission(permission.VIDEO_REMOTE) {
 		ctx := h.app.Context()
 		rdb := h.app.GetRedis()
 
 		currentTime := data.Data.(float64)
-		msg := resource.ServerMessage{
-			Data: resource.BuildPacket(opcode.Seek, currentTime),
-			Target: resource.MessageTarget{
+		msg := resource2.ServerMessage{
+			Data: resource2.BuildPacket(opcode.Seek, currentTime),
+			Target: resource2.MessageTarget{
 				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
 			},
 		}
@@ -111,7 +111,7 @@ func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) gateway.E
 	return nil
 }
 
-func (h *Handlers) HandleSkip(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleSkip(data *resource2.Packet, c *client.Client) gateway.Error {
 	if !c.Session.HasPermission(permission.VIDEO_REMOTE) {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (h *Handlers) HandleSkip(data *resource.Packet, c *client.Client) gateway.E
 	return nil
 }
 
-func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleVideoEnd(data *resource2.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 {
@@ -196,8 +196,8 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	}
 
 	if item != nil {
-		queueRemoveMsg := resource.ServerMessage{
-			Data: resource.BuildPacket(opcode.QueueRemove, item.Id),
+		queueRemoveMsg := resource2.ServerMessage{
+			Data: resource2.BuildPacket(opcode.QueueRemove, item.Id),
 		}
 
 		err = h.app.DispatchRoom(roomId, queueRemoveMsg)
@@ -220,15 +220,15 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	return h.setCurrentItem(ctx, roomId, item)
 }
 
-func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) error {
-	state := resource.PlayerState{
+func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item *resource2.MediaItem) error {
+	state := resource2.PlayerState{
 		IsPlaying: false,
 		CurrentTime: 0,
 		PlaybackStart: time.Now(),
 	}
 
-	setVideoMsg := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.VideoSet, item),
+	setVideoMsg := resource2.ServerMessage{
+		Data: resource2.BuildPacket(opcode.VideoSet, item),
 	}
 
 	err := h.app.DispatchRoom(roomId, setVideoMsg)
@@ -274,7 +274,7 @@ func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item
 	return err
 }
 
-func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource.PlayerState, error) {
+func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource2.PlayerState, error) {
 	rdb := h.app.GetRedis()
 	stateKey := fmt.Sprintf(constant.RoomStateFmt, roomId)
 
@@ -296,7 +296,7 @@ func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource
 		return nil, err
 	}
 
-	state := resource.PlayerState{
+	state := resource2.PlayerState{
 		IsPlaying: vals["playing"] == "1",
 		PlaybackStart: playbackStart,
 		CurrentTime: currentTime,
@@ -310,8 +310,8 @@ func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource
 	return &state, nil
 }
 
-func (h *Handlers) dispatchState(roomId model.RoomId, state *resource.PlayerState) error {
-	stateMsg := resource.ServerMessage{
+func (h *Handlers) dispatchState(roomId model.RoomId, state *resource2.PlayerState) error {
+	stateMsg := resource2.ServerMessage{
 		Data: buildState(state),
 	}
 

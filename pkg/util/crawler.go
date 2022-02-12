@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/sakuraapp/shared/resource"
+	"github.com/sakuraapp/shared/pkg/resource"
 	"golang.org/x/net/html"
 	"net/http"
 )

@@ -3,8 +3,8 @@ package manager
 import (
 	"fmt"
 	"github.com/sakuraapp/gateway/internal/client"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
+	"github.com/sakuraapp/shared/pkg/constant"
+	"github.com/sakuraapp/shared/pkg/model"
 	"sync"
 )
 

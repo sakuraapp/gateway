@@ -7,22 +7,22 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
-	"github.com/sakuraapp/shared/constant"
-	"github.com/sakuraapp/shared/model"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
-	"github.com/sakuraapp/shared/resource/permission"
-	"github.com/sakuraapp/shared/resource/role"
+	"github.com/sakuraapp/shared/pkg/constant"
+	model2 "github.com/sakuraapp/shared/pkg/model"
+	resource2 "github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/resource/permission"
+	"github.com/sakuraapp/shared/pkg/resource/role"
 	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
 type RoleUpdateMessage struct {
-	UserId model.UserId `json:"userId" mapstructure:"userId"`
-	RoleId role.Id `json:"roleId" mapstructure:"roleId"`
+	UserId model2.UserId `json:"userId" mapstructure:"userId"`
+	RoleId role.Id       `json:"roleId" mapstructure:"roleId"`
 }
 
-func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleJoinRoom(data *resource2.Packet, c *client.Client) gateway.Error {
 	fRoomId, ok := data.Data.(float64)
 
 	if !ok {
@@ -31,7 +31,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 
 	ctx := c.Context()
 
-	roomId := model.RoomId(fRoomId)
+	roomId := model2.RoomId(fRoomId)
 	room, err := h.app.GetRepos().Room.Get(ctx, roomId)
 
 	if err != nil {
@@ -67,7 +67,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 			}
 		} else if err == redis.Nil {
 			// this runs if a request did not exist at all
-			var user *model.User
+			var user *model2.User
 			user, err = h.app.GetRepos().User.FetchWithDiscriminator(userId)
 
 			if err != nil {
@@ -80,15 +80,15 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 				return gateway.NewError(gateway.ErrorRedis, err)
 			}
 
-			reqMsg := resource.ServerMessage{
-				Target: resource.MessageTarget{
+			reqMsg := resource2.ServerMessage{
+				Target: resource2.MessageTarget{
 					Permissions: permission.MANAGE_ROOM,
 				},
-				Data: resource.Packet{
+				Data: resource2.Packet{
 					Opcode: opcode.AddNotification,
-					Data: resource.Notification{
-						Id: uuid.NewString(),
-						Type: resource.NotificationJoinRequest,
+					Data: resource2.Notification{
+						Id:   uuid.NewString(),
+						Type: resource2.NotificationJoinRequest,
 						Data: builder.NewUser(user),
 					},
 				},
@@ -154,11 +154,11 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 
 	// todo: make this code not awful
 	userCount := len(strUserIds)
-	userIds := make([]model.UserId, 0, userCount)
+	userIds := make([]model2.UserId, 0, userCount)
 	userIds = append(userIds, userId)// add current user at the front so we can find their user object easily
 
 	var intUID int
-	var uid model.UserId
+	var uid model2.UserId
 
 	for _, strUID := range strUserIds {
 		if strUID == strUserId {
@@ -168,7 +168,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		intUID, err = strconv.Atoi(strUID)
 
 		if err == nil {
-			uid = model.UserId(intUID)
+			uid = model2.UserId(intUID)
 
 			userIds = append(userIds, uid)
 		}
@@ -180,16 +180,16 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
-	members := make([]*resource.RoomMember, 0, len(roomMembers))
+	members := make([]*resource2.RoomMember, 0, len(roomMembers))
 
 	for _, roomMember := range roomMembers {
 		member := builder.NewRoomMember(&roomMember)
 		members = append(members, member)
 	}
 
-	addUserMessage := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.AddUser, members[0]),
-		Target: resource.MessageTarget{
+	addUserMessage := resource2.ServerMessage{
+		Data: resource2.BuildPacket(opcode.AddUser, members[0]),
+		Target: resource2.MessageTarget{
 			IgnoredSessionIds: map[string]bool{sessionId: true},
 		},
 	}
@@ -244,10 +244,10 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		}
 	}
 
-	currentItem := resource.MediaItem{
-		Id: vals["id"],
-		Author: model.UserId(intAuthor),
-		MediaItemInfo: &resource.MediaItemInfo{
+	currentItem := resource2.MediaItem{
+		Id:     vals["id"],
+		Author: model2.UserId(intAuthor),
+		MediaItemInfo: &resource2.MediaItemInfo{
 			Title: vals["title"],
 			Icon: vals["icon"],
 			Url: vals["url"],
@@ -271,7 +271,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 	return nil
 }
 
-func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleUpdateRole(data *resource2.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -333,7 +333,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 			return gateway.NewError(gateway.ErrorDatabase, err)
 		}
 
-		roles := model.BuildRoleManager(userRoles)
+		roles := model2.BuildRoleManager(userRoles)
 		hisHighestRole := roles.Max()
 
 		if myHighestRole.Order() <= hisHighestRole.Order() {
@@ -348,7 +348,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 		}
 	}
 
-	userRole := model.UserRole{
+	userRole := model2.UserRole{
 		UserId: opts.UserId,
 		RoomId: roomId,
 		RoleId: r.Id(),
@@ -364,10 +364,10 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
-	updateServerMsg := resource.ServerMessage{
-		Type: resource.SERVER_MESSAGE,
-		Target: resource.MessageTarget{
-			UserIds: []model.UserId{opts.UserId},
+	updateServerMsg := resource2.ServerMessage{
+		Type: resource2.SERVER_MESSAGE,
+		Target: resource2.MessageTarget{
+			UserIds: []model2.UserId{opts.UserId},
 			RoomId: roomId,
 		},
 		Data: *data,
@@ -379,8 +379,8 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
-	updateMsg := resource.ServerMessage{
-		Target: resource.MessageTarget{
+	updateMsg := resource2.ServerMessage{
+		Target: resource2.MessageTarget{
 			IgnoredSessionIds: map[string]bool{
 				s.Id: true,
 			},
@@ -397,7 +397,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 	return nil
 }
 
-func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
+func (h *Handlers) UpdateRole(msg *resource2.ServerMessage) {
 	var opts RoleUpdateMessage
 
 	err := mapstructure.Decode(msg.Data.Data, &opts)
@@ -493,8 +493,8 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool) error {
 			return err
 		}
 
-		leaveMsg := resource.ServerMessage{
-			Data: resource.BuildPacket(opcode.RemoveUser, userId),
+		leaveMsg := resource2.ServerMessage{
+			Data: resource2.BuildPacket(opcode.RemoveUser, userId),
 		}
 
 		err = h.app.DispatchRoom(roomId, leaveMsg)
@@ -509,7 +509,7 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool) error {
 	return nil
 }
 
-func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleKickUser(data *resource2.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -530,7 +530,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return nil
 	}
 
-	targetUserId := model.UserId(fUserId)
+	targetUserId := model2.UserId(fUserId)
 
 	if targetUserId == s.UserId {
 		return nil
@@ -557,7 +557,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
-	roles := model.BuildRoleManager(userRoles)
+	roles := model2.BuildRoleManager(userRoles)
 
 	myHighestRole := s.Roles.Max()
 	hisHighestRole := roles.Max()
@@ -580,15 +580,15 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	kickMsg := resource.ServerMessage{
-		Type: resource.SERVER_MESSAGE,
-		Target: resource.MessageTarget{
-			UserIds: []model.UserId{targetUserId},
+	kickMsg := resource2.ServerMessage{
+		Type: resource2.SERVER_MESSAGE,
+		Target: resource2.MessageTarget{
+			UserIds: []model2.UserId{targetUserId},
 			RoomId: roomId,
 		},
-		Data: resource.Packet{
+		Data: resource2.Packet{
 			Opcode: opcode.KickUser,
-			Data: *data,
+			Data:   *data,
 		},
 	}
 
@@ -614,8 +614,8 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	leaveMsg := resource.ServerMessage{
-		Data: resource.BuildPacket(opcode.RemoveUser, targetUserId),
+	leaveMsg := resource2.ServerMessage{
+		Data: resource2.BuildPacket(opcode.RemoveUser, targetUserId),
 	}
 
 	err = h.app.DispatchRoom(roomId, leaveMsg)
@@ -627,7 +627,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 	return nil
 }
 
-func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleLeaveRoom(data *resource2.Packet, c *client.Client) gateway.Error {
 	err := h.removeClient(c, true)
 
 	if err != nil {
@@ -637,9 +637,9 @@ func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) gate
 	return nil
 }
 
-func (h *Handlers) KickUser(msg *resource.ServerMessage) {
+func (h *Handlers) KickUser(msg *resource2.ServerMessage) {
 	fUserId := msg.Data.Data.(float64)
-	userId := model.UserId(fUserId)
+	userId := model2.UserId(fUserId)
 	roomId := msg.Target.RoomId
 
 	m := h.app.GetRoomMgr()
@@ -687,7 +687,7 @@ func (h *Handlers) KickUser(msg *resource.ServerMessage) {
 	}
 }
 
-func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource2.Packet, c *client.Client) gateway.Error {
 	s := c.Session
 	roomId := s.RoomId
 
@@ -708,7 +708,7 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 		return nil
 	}
 
-	targetUserId := model.UserId(fUserId)
+	targetUserId := model2.UserId(fUserId)
 	strUserId := strconv.FormatInt(int64(fUserId), 10)
 
 	ctx := c.Context()
@@ -722,12 +722,12 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	msg := resource.ServerMessage{
-		Type: resource.NORMAL_MESSAGE,
-		Target: resource.MessageTarget{
-			UserIds: []model.UserId{targetUserId},
+	msg := resource2.ServerMessage{
+		Type: resource2.NORMAL_MESSAGE,
+		Target: resource2.MessageTarget{
+			UserIds: []model2.UserId{targetUserId},
 		},
-		Data: resource.BuildPacket(opcode.RoomJoinRequest, roomId),
+		Data: resource2.BuildPacket(opcode.RoomJoinRequest, roomId),
 	}
 
 	err = h.app.Dispatch(msg)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/lesismal/nbio/nbhttp/websocket"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
+	"github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	log "github.com/sirupsen/logrus"
 	"time"
 )

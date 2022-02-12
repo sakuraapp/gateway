@@ -19,9 +19,9 @@ import (
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/util"
 	"github.com/sakuraapp/shared/pkg/crypto"
+	resource2 "github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	sharedUtil "github.com/sakuraapp/shared/pkg/util"
-	"github.com/sakuraapp/shared/resource"
-	"github.com/sakuraapp/shared/resource/opcode"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -37,7 +37,7 @@ type Server struct {
 	ctx context.Context
 	ctxCancel context.CancelFunc
 	crawler *util.Crawler
-	resourceBuilder *resource.Builder
+	resourceBuilder *resource2.Builder
 	jwt *util.JWT
 	db *pg.DB
 	rdb *redis.Client
@@ -110,8 +110,8 @@ func New(conf config.Config) *Server {
 	}
 	s3BaseUrl := sharedUtil.GetS3BaseUrl(s3Config)
 
-	resourceBuilder := resource.NewBuilder()
-	resourceBuilder.SetUserFormatter(func(user *resource.User) *resource.User {
+	resourceBuilder := resource2.NewBuilder()
+	resourceBuilder.SetUserFormatter(func(user *resource2.User) *resource2.User {
 		if !user.Avatar.IsZero() {
 			user.Avatar.String = sharedUtil.ResolveS3URL(s3BaseUrl, user.Avatar.String)
 		}
@@ -174,7 +174,7 @@ func (s *Server) GetConfig() *config.Config {
 	return &s.Config
 }
 
-func (s *Server) GetBuilder() *resource.Builder {
+func (s *Server) GetBuilder() *resource2.Builder {
 	return s.resourceBuilder
 }
 
@@ -281,7 +281,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			log.WithError(err).Error("Failed to set read deadline")
 		}
 
-		var packet resource.Packet
+		var packet resource2.Packet
 
 		err = json.Unmarshal(data, &packet)
 
@@ -325,7 +325,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		if session != nil {
 			s.sessions.Remove(c.Session)
 
-			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
+			disconnectPacket := resource2.BuildPacket(opcode.Disconnect, nil)
 			s.handlers.Handle(&disconnectPacket, c)
 		}
 	})
