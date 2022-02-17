@@ -50,7 +50,7 @@ func (s *Server) initPubsub() {
 						s.handlers.HandleServer(&msg)
 					})
 				} else {
-					err = s.DispatchLocal(msg)
+					err = s.DispatchLocal(&msg)
 
 					if err != nil {
 						log.Errorf("Unable to locally dispatch PubSub Message: %+v", msg)
@@ -71,7 +71,7 @@ func (s *Server) initPubsub() {
 
 				log.WithField("room_id", roomId).Debugf("Incoming Room Message: %+v", msg)
 
-				err = s.DispatchRoomLocal(roomId, msg)
+				err = s.DispatchRoomLocal(roomId, &msg)
 
 				if err != nil {
 					log.WithError(err).Error("Unable to handle PubSub Room Message")

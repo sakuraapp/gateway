@@ -81,10 +81,10 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 			}
 
 			reqMsg := resource.ServerMessage{
-				Target: resource.MessageTarget{
+				Target: &resource.MessageTarget{
 					Permissions: permission.MANAGE_ROOM,
 				},
-				Data: resource.Packet{
+				Data: &resource.Packet{
 					Opcode: opcode.AddNotification,
 					Data: resource.Notification{
 						Id:   uuid.NewString(),
@@ -94,7 +94,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 				},
 			}
 
-			err = h.app.DispatchRoom(roomId, reqMsg)
+			err = h.app.DispatchRoom(roomId, &reqMsg)
 
 			if err != nil {
 				return gateway.NewError(gateway.ErrorDispatch, err)
@@ -189,7 +189,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 
 	addUserMessage := resource.ServerMessage{
 		Data: resource.BuildPacket(opcode.AddUser, members[0]),
-		Target: resource.MessageTarget{
+		Target: &resource.MessageTarget{
 			IgnoredSessionIds: map[string]bool{sessionId: true},
 		},
 	}
@@ -210,7 +210,7 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		"permissions": roles.Permissions(),
 	}
 
-	err = h.app.DispatchRoom(roomId, addUserMessage)
+	err = h.app.DispatchRoom(roomId, &addUserMessage)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
@@ -366,29 +366,29 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 
 	updateServerMsg := resource.ServerMessage{
 		Type: resource.SERVER_MESSAGE,
-		Target: resource.MessageTarget{
+		Target: &resource.MessageTarget{
 			UserIds: []model.UserId{opts.UserId},
 			RoomId: roomId,
 		},
-		Data: *data,
+		Data: data,
 	}
 
-	err = h.app.Dispatch(updateServerMsg)
+	err = h.app.Dispatch(&updateServerMsg)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
 	updateMsg := resource.ServerMessage{
-		Target: resource.MessageTarget{
+		Target: &resource.MessageTarget{
 			IgnoredSessionIds: map[string]bool{
 				s.Id: true,
 			},
 		},
-		Data: *data,
+		Data: data,
 	}
 
-	err = h.app.DispatchRoom(roomId, updateMsg)
+	err = h.app.DispatchRoom(roomId, &updateMsg)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
@@ -497,7 +497,7 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool) error {
 			Data: resource.BuildPacket(opcode.RemoveUser, userId),
 		}
 
-		err = h.app.DispatchRoom(roomId, leaveMsg)
+		err = h.app.DispatchRoom(roomId, &leaveMsg)
 
 		if err != nil {
 			return err
@@ -582,17 +582,17 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 
 	kickMsg := resource.ServerMessage{
 		Type: resource.SERVER_MESSAGE,
-		Target: resource.MessageTarget{
+		Target: &resource.MessageTarget{
 			UserIds: []model.UserId{targetUserId},
 			RoomId: roomId,
 		},
-		Data: resource.Packet{
+		Data: &resource.Packet{
 			Opcode: opcode.KickUser,
 			Data:   *data,
 		},
 	}
 
-	err = h.app.Dispatch(kickMsg)
+	err = h.app.Dispatch(&kickMsg)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
@@ -618,7 +618,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		Data: resource.BuildPacket(opcode.RemoveUser, targetUserId),
 	}
 
-	err = h.app.DispatchRoom(roomId, leaveMsg)
+	err = h.app.DispatchRoom(roomId, &leaveMsg)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
@@ -724,13 +724,13 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 
 	msg := resource.ServerMessage{
 		Type: resource.NORMAL_MESSAGE,
-		Target: resource.MessageTarget{
+		Target: &resource.MessageTarget{
 			UserIds: []model.UserId{targetUserId},
 		},
 		Data: resource.BuildPacket(opcode.RoomJoinRequest, roomId),
 	}
 
-	err = h.app.Dispatch(msg)
+	err = h.app.Dispatch(&msg)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)

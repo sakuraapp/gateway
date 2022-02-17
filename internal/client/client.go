@@ -27,7 +27,7 @@ func (c *Client) Conn() *websocket.Conn {
 	return c.conn
 }
 
-func (c *Client) Write(packet resource.Packet) error {
+func (c *Client) Write(packet *resource.Packet) error {
 	b, err := json.Marshal(packet)
 
 	if err != nil {

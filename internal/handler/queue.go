@@ -90,7 +90,7 @@ func (h *Handlers) HandleQueueAdd(data *resource2.Packet, c *client.Client) gate
 			Data: resource2.BuildPacket(opcode.QueueAdd, item),
 		}
 
-		err = h.app.DispatchRoom(roomId, queueAddMessage)
+		err = h.app.DispatchRoom(roomId, &queueAddMessage)
 
 		if err != nil {
 			return gateway.NewError(gateway.ErrorDispatch, err)
@@ -153,7 +153,7 @@ func (h *Handlers) HandleQueueRemove(data *resource2.Packet, c *client.Client) g
 		Data: resource2.BuildPacket(opcode.QueueRemove, id),
 	}
 
-	err = h.app.DispatchRoom(roomId, queueRemoveMessage)
+	err = h.app.DispatchRoom(roomId, &queueRemoveMessage)
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)

@@ -13,7 +13,7 @@ require (
 	github.com/lesismal/nbio v1.2.2
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/rs/cors v1.8.0
-	github.com/sakuraapp/shared v0.0.0-20220215031146-16e58a9fd0e2
+	github.com/sakuraapp/shared v0.0.0-20220217101033-befba93b53ef
 	github.com/sirupsen/logrus v1.8.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	golang.org/x/net v0.0.0-20211020060615-d418f374d309

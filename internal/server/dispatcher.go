@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource/permission"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,7 +15,7 @@ func (d *GatewayDispatcher) HandleServerMessage(msg *resource.ServerMessage) {
 	d.server.handlers.HandleServer(msg)
 }
 
-func (d *GatewayDispatcher) DispatchLocal(msg resource.ServerMessage) error {
+func (d *GatewayDispatcher) DispatchLocal(msg *resource.ServerMessage) error {
 	clientMgr := d.server.clients
 	sessMgr := d.server.sessions
 
@@ -24,8 +25,13 @@ func (d *GatewayDispatcher) DispatchLocal(msg resource.ServerMessage) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	ignoredSessions := msg.Target.IgnoredSessionIds
-	roomId := msg.Target.RoomId
+	var ignoredSessions map[string]bool
+	var roomId model.RoomId
+
+	if msg.Target != nil {
+		ignoredSessions = msg.Target.IgnoredSessionIds
+		roomId = msg.Target.RoomId
+	}
 
 	switch msg.Type {
 	case resource.BROADCAST_MESSAGE:
@@ -70,8 +76,15 @@ func (d *GatewayDispatcher) DispatchLocal(msg resource.ServerMessage) error {
 	return nil
 }
 
-func (d *GatewayDispatcher) DispatchRoomLocal(roomId model.RoomId, msg resource.ServerMessage) error {
-	perms := msg.Target.Permissions
+func (d *GatewayDispatcher) DispatchRoomLocal(roomId model.RoomId, msg *resource.ServerMessage) error {
+	var perms permission.Permission
+	var ignoredSessions map[string]bool
+
+	if msg.Target != nil {
+		perms = msg.Target.Permissions
+		ignoredSessions = msg.Target.IgnoredSessionIds
+	}
+
 	r := d.server.rooms.Get(roomId)
 	var err error
 
@@ -85,7 +98,7 @@ func (d *GatewayDispatcher) DispatchRoomLocal(roomId model.RoomId, msg resource.
 				continue
 			}
 
-			if !msg.Target.IgnoredSessionIds[c.Session.Id] {
+			if !ignoredSessions[c.Session.Id] {
 				err = c.Write(msg.Data)
 
 				if err != nil {
