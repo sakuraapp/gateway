@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
+	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
@@ -80,8 +81,8 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 				return gateway.NewError(gateway.ErrorRedis, err)
 			}
 
-			reqMsg := resource.ServerMessage{
-				Target: &resource.MessageTarget{
+			reqMsg := pubsub.Message{
+				Target: &pubsub.MessageTarget{
 					Permissions: permission.MANAGE_ROOM,
 				},
 				Data: &resource.Packet{
@@ -187,9 +188,9 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		members = append(members, member)
 	}
 
-	addUserMessage := resource.ServerMessage{
+	addUserMessage := pubsub.Message{
 		Data: resource.BuildPacket(opcode.AddUser, members[0]),
-		Target: &resource.MessageTarget{
+		Target: &pubsub.MessageTarget{
 			IgnoredSessionIds: map[string]bool{sessionId: true},
 		},
 	}
@@ -364,9 +365,9 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 		return gateway.NewError(gateway.ErrorDatabase, err)
 	}
 
-	updateServerMsg := resource.ServerMessage{
-		Type: resource.SERVER_MESSAGE,
-		Target: &resource.MessageTarget{
+	updateServerMsg := pubsub.Message{
+		Type: pubsub.ServerMessage,
+		Target: &pubsub.MessageTarget{
 			UserIds: []model.UserId{opts.UserId},
 			RoomId: roomId,
 		},
@@ -379,8 +380,8 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 		return gateway.NewError(gateway.ErrorDispatch, err)
 	}
 
-	updateMsg := resource.ServerMessage{
-		Target: &resource.MessageTarget{
+	updateMsg := pubsub.Message{
+		Target: &pubsub.MessageTarget{
 			IgnoredSessionIds: map[string]bool{
 				s.Id: true,
 			},
@@ -397,7 +398,7 @@ func (h *Handlers) HandleUpdateRole(data *resource.Packet, c *client.Client) gat
 	return nil
 }
 
-func (h *Handlers) UpdateRole(msg *resource.ServerMessage) {
+func (h *Handlers) UpdateRole(msg *pubsub.Message) {
 	var opts RoleUpdateMessage
 
 	err := mapstructure.Decode(msg.Data.Data, &opts)
@@ -493,7 +494,7 @@ func (h *Handlers) removeClient(c *client.Client, updateSession bool) error {
 			return err
 		}
 
-		leaveMsg := resource.ServerMessage{
+		leaveMsg := pubsub.Message{
 			Data: resource.BuildPacket(opcode.RemoveUser, userId),
 		}
 
@@ -580,9 +581,9 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	kickMsg := resource.ServerMessage{
-		Type: resource.SERVER_MESSAGE,
-		Target: &resource.MessageTarget{
+	kickMsg := pubsub.Message{
+		Type: pubsub.ServerMessage,
+		Target: &pubsub.MessageTarget{
 			UserIds: []model.UserId{targetUserId},
 			RoomId: roomId,
 		},
@@ -614,7 +615,7 @@ func (h *Handlers) HandleKickUser(data *resource.Packet, c *client.Client) gatew
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	leaveMsg := resource.ServerMessage{
+	leaveMsg := pubsub.Message{
 		Data: resource.BuildPacket(opcode.RemoveUser, targetUserId),
 	}
 
@@ -637,7 +638,7 @@ func (h *Handlers) HandleLeaveRoom(data *resource.Packet, c *client.Client) gate
 	return nil
 }
 
-func (h *Handlers) KickUser(msg *resource.ServerMessage) {
+func (h *Handlers) KickUser(msg *pubsub.Message) {
 	fUserId := msg.Data.Data.(float64)
 	userId := model.UserId(fUserId)
 	roomId := msg.Target.RoomId
@@ -722,9 +723,9 @@ func (h *Handlers) HandleAcceptRoomJoinRequest(data *resource.Packet, c *client.
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	msg := resource.ServerMessage{
-		Type: resource.NORMAL_MESSAGE,
-		Target: &resource.MessageTarget{
+	msg := pubsub.Message{
+		Type: pubsub.NormalMessage,
+		Target: &pubsub.MessageTarget{
 			UserIds: []model.UserId{targetUserId},
 		},
 		Data: resource.BuildPacket(opcode.RoomJoinRequest, roomId),

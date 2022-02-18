@@ -2,9 +2,9 @@ package server
 
 import (
 	"fmt"
+	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
 	"github.com/sakuraapp/shared/pkg/model"
-	"github.com/sakuraapp/shared/pkg/resource"
 	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -16,19 +16,19 @@ func (s *Server) initPubsub() {
 
 	chName := fmt.Sprintf(constant.GatewayFmt, nodeId)
 
-	pubsub := rdb.Subscribe(ctx, chName, constant.BroadcastChName)
-	s.pubsub = pubsub
+	ps := rdb.Subscribe(ctx, chName, constant.BroadcastChName)
+	s.pubsub = ps
 
 	go func() {
 		for {
-			message, err := pubsub.ReceiveMessage(ctx)
+			message, err := ps.ReceiveMessage(ctx)
 
 			if err != nil {
 				log.Errorf("PubSub Error: %v", err)
 				continue
 			}
 
-			var msg resource.ServerMessage
+			var msg pubsub.Message
 
 			err = msgpack.Unmarshal([]byte(message.Payload), &msg)
 
@@ -45,7 +45,7 @@ func (s *Server) initPubsub() {
 			ch := message.Channel
 
 			if ch == chName || ch == constant.BroadcastChName {
-				if msg.Type == resource.SERVER_MESSAGE {
+				if msg.Type == pubsub.ServerMessage {
 					s.taskPool.Go(func() {
 						s.handlers.HandleServer(&msg)
 					})

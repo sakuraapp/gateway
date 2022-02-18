@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
+	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
@@ -45,9 +46,9 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 			PlaybackStart: t,
 		}
 
-		msg := resource.ServerMessage{
+		msg := pubsub.Message{
 			Data: resource.BuildPacket(opcode.PlayerState, state),
-			Target: &resource.MessageTarget{
+			Target: &pubsub.MessageTarget{
 				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
 			},
 		}
@@ -85,9 +86,9 @@ func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) gateway.E
 		rdb := h.app.GetRedis()
 
 		currentTime := data.Data.(float64)
-		msg := resource.ServerMessage{
+		msg := pubsub.Message{
 			Data: resource.BuildPacket(opcode.Seek, currentTime),
-			Target: &resource.MessageTarget{
+			Target: &pubsub.MessageTarget{
 				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
 			},
 		}
@@ -196,7 +197,7 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	}
 
 	if item != nil {
-		queueRemoveMsg := resource.ServerMessage{
+		queueRemoveMsg := pubsub.Message{
 			Data: resource.BuildPacket(opcode.QueueRemove, item.Id),
 		}
 
@@ -227,7 +228,7 @@ func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item
 		PlaybackStart: time.Now(),
 	}
 
-	setVideoMsg := resource.ServerMessage{
+	setVideoMsg := pubsub.Message{
 		Data: resource.BuildPacket(opcode.VideoSet, item),
 	}
 
@@ -311,7 +312,7 @@ func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource
 }
 
 func (h *Handlers) dispatchState(roomId model.RoomId, state *resource.PlayerState) error {
-	stateMsg := resource.ServerMessage{
+	stateMsg := pubsub.Message{
 		Data: buildState(state),
 	}
 

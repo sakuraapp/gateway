@@ -18,8 +18,8 @@ import (
 	"github.com/sakuraapp/gateway/internal/manager"
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/util"
+	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/crypto"
-	"github.com/sakuraapp/shared/pkg/dispatcher"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	sharedUtil "github.com/sakuraapp/shared/pkg/util"
@@ -32,7 +32,7 @@ import (
 
 type Server struct {
 	config.Config
-	dispatcher.Dispatcher
+	pubsub.Dispatcher
 	cors *cors.Cors
 	taskPool *taskpool.MixedPool
 	server *nbhttp.Server
@@ -147,7 +147,7 @@ func New(conf config.Config) *Server {
 		handlers:        manager.NewHandlerManager(),
 	}
 
-	s.Dispatcher = dispatcher.NewRedis(s.ctx, &GatewayDispatcher{server: s}, s.NodeId(), s.rdb)
+	s.Dispatcher = pubsub.NewRedisDispatcher(s.ctx, &GatewayDispatcher{server: s}, s.NodeId(), s.rdb)
 	s.initPubsub()
 
 	s.subscriptions = manager.NewSubscriptionManager(s.ctx, s.pubsub)

@@ -7,9 +7,10 @@ import (
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/gateway/pkg/util"
+	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
 	"github.com/sakuraapp/shared/pkg/model"
-	resource2 "github.com/sakuraapp/shared/pkg/resource"
+	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	"github.com/sakuraapp/shared/pkg/resource/permission"
 	log "github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ import (
 	"net/url"
 )
 
-func (h *Handlers) HandleQueueAdd(data *resource2.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 || !c.Session.HasPermission(permission.QUEUE_ADD) {
@@ -49,7 +50,7 @@ func (h *Handlers) HandleQueueAdd(data *resource2.Packet, c *client.Client) gate
 	// note that empty titles & icons are handled client-side
 
 	itemInfo.Url = rawUrl
-	item := resource2.MediaItem{
+	item := resource.MediaItem{
 		Id: uuid.NewString(),
 		Author: c.Session.UserId,
 		MediaItemInfo: itemInfo,
@@ -86,8 +87,8 @@ func (h *Handlers) HandleQueueAdd(data *resource2.Packet, c *client.Client) gate
 			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 
-		queueAddMessage := resource2.ServerMessage{
-			Data: resource2.BuildPacket(opcode.QueueAdd, item),
+		queueAddMessage := pubsub.Message{
+			Data: resource.BuildPacket(opcode.QueueAdd, item),
 		}
 
 		err = h.app.DispatchRoom(roomId, &queueAddMessage)
@@ -106,7 +107,7 @@ func (h *Handlers) HandleQueueAdd(data *resource2.Packet, c *client.Client) gate
 	return nil
 }
 
-func (h *Handlers) HandleQueueRemove(data *resource2.Packet, c *client.Client) gateway.Error {
+func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) gateway.Error {
 	roomId := c.Session.RoomId
 
 	if roomId == 0 {
@@ -122,7 +123,7 @@ func (h *Handlers) HandleQueueRemove(data *resource2.Packet, c *client.Client) g
 	id := data.Data.(string)
 
 	if !c.Session.HasPermission(permission.QUEUE_EDIT) {
-		var item resource2.MediaItem
+		var item resource.MediaItem
 		
 		err := rdb.HGet(ctx, queueItemsKey, id).Scan(&item)
 
@@ -149,8 +150,8 @@ func (h *Handlers) HandleQueueRemove(data *resource2.Packet, c *client.Client) g
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	queueRemoveMessage := resource2.ServerMessage{
-		Data: resource2.BuildPacket(opcode.QueueRemove, id),
+	queueRemoveMessage := pubsub.Message{
+		Data: resource.BuildPacket(opcode.QueueRemove, id),
 	}
 
 	err = h.app.DispatchRoom(roomId, &queueRemoveMessage)
@@ -162,7 +163,7 @@ func (h *Handlers) HandleQueueRemove(data *resource2.Packet, c *client.Client) g
 	return nil
 }
 
-func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource2.MediaItem, error) {
+func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource.MediaItem, error) {
 	queueKey := fmt.Sprintf(constant.RoomQueueFmt, roomId)
 	itemsKey := fmt.Sprintf(constant.RoomQueueItemsFmt, roomId)
 
@@ -186,7 +187,7 @@ func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource2
 		return nil, err
 	}
 
-	var item resource2.MediaItem
+	var item resource.MediaItem
 
 	err = getCmd.Scan(&item)
 
