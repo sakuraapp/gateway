@@ -245,9 +245,16 @@ func (h *Handlers) HandleJoinRoom(data *resource.Packet, c *client.Client) gatew
 		}
 	}
 
+	intType, err := strconv.ParseInt(vals["type"], 10, 64)
+
+	if err != nil {
+		return gateway.NewError(gateway.ErrorParse, err)
+	}
+
 	currentItem := resource.MediaItem{
 		Id:     vals["id"],
 		Author: model.UserId(intAuthor),
+		Type: resource.MediaItemType(intType),
 		MediaItemInfo: &resource.MediaItemInfo{
 			Title: vals["title"],
 			Icon: vals["icon"],

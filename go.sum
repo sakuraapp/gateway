@@ -308,6 +308,8 @@ github.com/rs/xid v1.2.1/go.mod h1:+uKXf+4Djp6Md1KODXJxgGQPKngRmWyn10oCKFzNHOQ=
 github.com/rs/zerolog v1.21.0/go.mod h1:ZPhntP/xmq1nnND05hhpAh2QMhSsA4UN3MGZ6O2J3hM=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
+github.com/sakuraapp/protobuf v0.0.0-20220218225141-c4807010eb9a h1:puYcoEH8Gv8rkhn0k7BO2oYKHjqvlwTSXDjAVCP7xG8=
+github.com/sakuraapp/protobuf v0.0.0-20220218225141-c4807010eb9a/go.mod h1:f5BzqD5AuIzn/3KRvkoqLxyUCLWys2HBvhhsE642qhg=
 github.com/sakuraapp/pubsub v0.0.0-20220218184552-4a84437e2825 h1:vLRTCrhdxM0bloX28y4c+N3ZYACuv7yY7Bs315jGWmM=
 github.com/sakuraapp/pubsub v0.0.0-20220218184552-4a84437e2825/go.mod h1:fshUyktVor/DukN+KEl/pXpD5NoT43UIck7r2HeVLds=
 github.com/sakuraapp/pubsub v0.0.0-20220218184923-d077759d5c7f h1:RObh2MZ1rd7Ts5SRJaYljFnhqK4VWOszhIUhbhDwT3Y=
@@ -318,6 +320,8 @@ github.com/sakuraapp/shared v0.0.0-20220217101033-befba93b53ef h1:xqycqgFoPwhI4A
 github.com/sakuraapp/shared v0.0.0-20220217101033-befba93b53ef/go.mod h1:RcqyqVQNH6LG+bSNqPEcI6OYYm1+8UnVC2C2H+Rgvu4=
 github.com/sakuraapp/shared v0.0.0-20220218190136-0d87f07b0c93 h1:VthPHkkz9IDGXUkS0gwS4N+uxmpjzH7SNHIvccAhGz4=
 github.com/sakuraapp/shared v0.0.0-20220218190136-0d87f07b0c93/go.mod h1:RcqyqVQNH6LG+bSNqPEcI6OYYm1+8UnVC2C2H+Rgvu4=
+github.com/sakuraapp/shared v0.0.0-20220218221327-91252d6b25a4 h1:KhWdPBqJ9tEZwSBWrU8EvfVZu1ojFztGAemEBzzV0YY=
+github.com/sakuraapp/shared v0.0.0-20220218221327-91252d6b25a4/go.mod h1:RcqyqVQNH6LG+bSNqPEcI6OYYm1+8UnVC2C2H+Rgvu4=
 github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0XIa01GRL2eRQVjQkKGqKF3SF9vZR/HnPullcV2E=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=

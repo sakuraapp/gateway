@@ -53,6 +53,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gatew
 	item := resource.MediaItem{
 		Id: uuid.NewString(),
 		Author: c.Session.UserId,
+		Type: resource.MediaItemTypeNormal,
 		MediaItemInfo: itemInfo,
 	}
 

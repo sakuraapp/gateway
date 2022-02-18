@@ -255,6 +255,7 @@ func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item
 	if item != nil {
 		pipe.HSet(ctx, currentItemKey,
 			"id", item.Id,
+			"type", item.Type,
 			"url", item.Url,
 			"title", item.Title,
 			"icon", item.Icon,
