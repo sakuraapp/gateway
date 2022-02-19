@@ -18,10 +18,11 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	port := os.Getenv("PORT")
+	strPort := os.Getenv("PORT")
+	port, err := strconv.ParseInt(strPort, 10, 16)
 
-	if port == "" {
-		port = "9000"
+	if err != nil {
+		log.WithError(err).Fatal("Invalid port")
 	}
 
 	env := os.Getenv("APP_ENV")
@@ -61,7 +62,7 @@ func main() {
 
 	s := server.New(config.Config{
 		Env: envType,
-		Port: port,
+		Port: int(port),
 		NodeId: nodeId,
 		AllowedOrigins: allowedOrigins,
 		JWTPublicPath: jwtPublicPath,

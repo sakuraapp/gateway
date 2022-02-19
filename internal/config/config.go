@@ -9,7 +9,7 @@ const (
 
 type Config struct {
 	Env  envType
-	Port string
+	Port int
 	NodeId string
 	AllowedOrigins []string
 	JWTPublicPath string
