@@ -34,6 +34,13 @@ func main() {
 
 	allowedOrigins := sharedUtil.ParseAllowedOrigins(os.Getenv("ALLOWED_ORIGINS"))
 
+	strGrpcPort := os.Getenv("GRPC_PORT")
+	grpcPort, err := strconv.ParseInt(strGrpcPort, 10, 64)
+
+	if err != nil {
+		log.WithError(err).Fatal("Invalid gRPC port")
+	}
+
 	redisAddr := os.Getenv("REDIS_ADDR")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisDatabase := os.Getenv("REDIS_DATABASE")
@@ -65,6 +72,9 @@ func main() {
 		Port: int(port),
 		NodeId: nodeId,
 		AllowedOrigins: allowedOrigins,
+		GrpcPort: int(grpcPort),
+		GrpcCertPath: os.Getenv("GRPC_CERT_PATH"),
+		GrpcKeyPath: os.Getenv("GRPC_KEY_PATH"),
 		JWTPublicPath: jwtPublicPath,
 		DatabaseUser: os.Getenv("DB_USER"),
 		DatabasePassword: os.Getenv("DB_PASSWORD"),

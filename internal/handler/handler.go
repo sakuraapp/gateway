@@ -9,8 +9,8 @@ type Handlers struct {
 	app app.App
 }
 
-func Init(app app.App) {
-	h := Handlers{app}
+func Init(app app.App) *Handlers {
+	h := &Handlers{app}
 	m := app.GetHandlerMgr()
 
 	m.Register(opcode.Authenticate, h.HandleAuth)
@@ -31,4 +31,6 @@ func Init(app app.App) {
 	m.RegisterServer(opcode.KickUser, h.KickUser)
 	m.RegisterServer(opcode.AddRole, h.UpdateRole)
 	m.RegisterServer(opcode.RemoveRole, h.UpdateRole)
+
+	return h
 }

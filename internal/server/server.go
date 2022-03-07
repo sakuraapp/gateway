@@ -18,12 +18,14 @@ import (
 	"github.com/sakuraapp/gateway/internal/manager"
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/util"
+	gatewaypb "github.com/sakuraapp/protobuf/gateway"
 	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/crypto"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	sharedUtil "github.com/sakuraapp/shared/pkg/util"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,6 +33,7 @@ import (
 )
 
 type Server struct {
+	gatewaypb.UnimplementedGatewayServiceServer
 	config.Config
 	pubsub.Dispatcher
 	cors *cors.Cors
@@ -44,13 +47,15 @@ type Server struct {
 	db *pg.DB
 	rdb *redis.Client
 	repos *repository.Repositories
+	handlers *handler.Handlers
 	cache *cache.Cache
-	clients *manager.ClientManager
-	sessions *manager.SessionManager
-	handlers *manager.HandlerManager
-	rooms *manager.RoomManager
-	subscriptions *manager.SubscriptionManager
+	clientMgr *manager.ClientManager
+	sessionMgr *manager.SessionManager
+	handlerMgr *manager.HandlerManager
+	roomMgr *manager.RoomManager
+	subscriptionMgr *manager.SubscriptionManager
 	pubsub *redis.PubSub
+	grpc *grpc.Server
 }
 
 func New(conf config.Config) *Server {
@@ -142,18 +147,20 @@ func New(conf config.Config) *Server {
 		rdb:             rdb,
 		cache:           myCache,
 		repos:           repos,
-		clients:         manager.NewClientManager(),
-		sessions:        manager.NewSessionManager(),
-		handlers:        manager.NewHandlerManager(),
+		clientMgr:       manager.NewClientManager(),
+		sessionMgr:      manager.NewSessionManager(),
+		handlerMgr:      manager.NewHandlerManager(),
 	}
 
 	s.Dispatcher = pubsub.NewRedisDispatcher(s.ctx, &GatewayDispatcher{server: s}, s.NodeId(), s.rdb)
 	s.initPubsub()
 
-	s.subscriptions = manager.NewSubscriptionManager(s.ctx, s.pubsub)
-	s.rooms = manager.NewRoomManager(s.subscriptions)
+	s.subscriptionMgr = manager.NewSubscriptionManager(s.ctx, s.pubsub)
+	s.roomMgr = manager.NewRoomManager(s.subscriptionMgr)
 
-	handler.Init(s)
+	s.handlers = handler.Init(s)
+
+	go s.initGrpc()
 
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/", s.onConnection)
@@ -206,26 +213,26 @@ func (s *Server) GetCache() *cache.Cache {
 }
 
 func (s *Server) GetHandlerMgr() *manager.HandlerManager {
-	return s.handlers
+	return s.handlerMgr
 }
 
 func (s *Server) GetClientMgr() *manager.ClientManager {
-	return s.clients
+	return s.clientMgr
 }
 
 func (s *Server) GetSessionMgr() *manager.SessionManager {
-	return s.sessions
+	return s.sessionMgr
 }
 
 func (s *Server) GetRoomMgr() *manager.RoomManager {
-	return s.rooms
+	return s.roomMgr
 }
 
 func (s *Server) Start() error {
 	err := s.server.Start()
 
-	go s.clients.StartTicker()
-	defer s.clients.StopTicker()
+	go s.clientMgr.StartTicker()
+	defer s.clientMgr.StopTicker()
 
 	if err != nil {
 		return err
@@ -249,6 +256,8 @@ func (s *Server) Start() error {
 	if err != nil {
 		panic(err)
 	}
+
+	s.grpc.GracefulStop()
 
 	return nil
 }
@@ -274,7 +283,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 	c := client.NewClient(s.ctx, wsConn, u)
 	c.Session = client.NewSession(0, s.NodeId())
 
-	s.clients.Add(c)
+	s.clientMgr.Add(c)
 
 	u.OnMessage(func(conn *websocket.Conn, messageType websocket.MessageType, data []byte) {
 		c.LastActive = time.Now()
@@ -298,7 +307,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Debugf("OnMessage: %+v", packet)
-		s.handlers.Handle(&packet, c)
+		s.handlerMgr.Handle(&packet, c)
 	})
 
 	u.SetPongHandler(func(conn *websocket.Conn, s string) {
@@ -317,7 +326,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsConn.OnClose(func(conn *websocket.Conn, err error) {
-		s.clients.Remove(c)
+		s.clientMgr.Remove(c)
 
 		if err != nil {
 			log.WithError(err).Error("Socket Closed")
@@ -326,10 +335,10 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 		session := c.Session
 
 		if session != nil {
-			s.sessions.Remove(c.Session)
+			s.sessionMgr.Remove(c.Session)
 
 			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
-			s.handlers.Handle(disconnectPacket, c)
+			s.handlerMgr.Handle(disconnectPacket, c)
 		}
 	})
 }

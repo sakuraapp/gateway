@@ -12,6 +12,9 @@ type Config struct {
 	Port int
 	NodeId string
 	AllowedOrigins []string
+	GrpcPort int
+	GrpcCertPath string
+	GrpcKeyPath string
 	JWTPublicPath string
 	DatabaseUser string
 	DatabasePassword string

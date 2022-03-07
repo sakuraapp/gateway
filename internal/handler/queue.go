@@ -98,7 +98,7 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gatew
 			return gateway.NewError(gateway.ErrorDispatch, err)
 		}
 	} else {
-		err = h.setCurrentItem(h.app.Context(), roomId, &item)
+		err = h.SetCurrentItem(h.app.Context(), roomId, &item)
 
 		if err != nil {
 			return gateway.NewError(gateway.ErrorSetCurrentItem, err)

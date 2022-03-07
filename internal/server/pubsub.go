@@ -47,7 +47,7 @@ func (s *Server) initPubsub() {
 			if ch == chName || ch == constant.BroadcastChName {
 				if msg.Type == pubsub.ServerMessage {
 					s.taskPool.Go(func() {
-						s.handlers.HandleServer(&msg)
+						s.handlerMgr.HandleServer(&msg)
 					})
 				} else {
 					err = s.DispatchLocal(&msg)

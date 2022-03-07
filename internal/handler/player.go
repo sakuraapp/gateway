@@ -218,10 +218,10 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 		}
 	}
 
-	return h.setCurrentItem(ctx, roomId, item)
+	return h.SetCurrentItem(ctx, roomId, item)
 }
 
-func (h *Handlers) setCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) error {
+func (h *Handlers) SetCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) error {
 	state := resource.PlayerState{
 		IsPlaying: false,
 		CurrentTime: 0,

@@ -12,12 +12,12 @@ type GatewayDispatcher struct {
 }
 
 func (d *GatewayDispatcher) HandleServerMessage(msg *pubsub.Message) {
-	d.server.handlers.HandleServer(msg)
+	d.server.handlerMgr.HandleServer(msg)
 }
 
 func (d *GatewayDispatcher) DispatchLocal(msg *pubsub.Message) error {
-	clientMgr := d.server.clients
-	sessMgr := d.server.sessions
+	clientMgr := d.server.GetClientMgr()
+	sessMgr := d.server.GetSessionMgr()
 
 	clients := clientMgr.Clients()
 	mu := clientMgr.Mutex()
@@ -85,7 +85,7 @@ func (d *GatewayDispatcher) DispatchRoomLocal(roomId model.RoomId, msg *pubsub.M
 		ignoredSessions = msg.Target.IgnoredSessionIds
 	}
 
-	r := d.server.rooms.Get(roomId)
+	r := d.server.roomMgr.Get(roomId)
 	var err error
 
 	if r != nil {
