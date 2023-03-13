@@ -6,6 +6,7 @@ import (
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/shared/pkg/constant"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
@@ -102,9 +103,9 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) gateway
 				WithError(err).
 				Error("Failed to reclaim session")
 		}
- 	}
+	}
 
- 	if s.UserId == 0 {
+	if s.UserId == 0 {
 		s.UserId = userId
 
 		sMap := map[string]interface{}{
@@ -116,14 +117,27 @@ func (h *Handlers) HandleAuth(packet *resource.Packet, c *client.Client) gateway
 		key = fmt.Sprintf(constant.SessionFmt, s.Id)
 
 		pipe.HSet(ctx, key, sMap)
- 	}
+	}
 
- 	h.app.GetSessionMgr().Add(s)
+	h.app.GetSessionMgr().Add(s)
 
 	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, user.Id)
 	pipe.SAdd(ctx, userSessionsKey, s.Id)
 
 	_, err = pipe.Exec(ctx)
+
+	if err != nil {
+		return gateway.NewAuthError(err)
+	}
+
+	userTopic := dispatcher.NewUserTarget(s.UserId).Build()
+	sessionTopic := dispatcher.NewSessionTarget(s.Id).Build()
+
+	subMgr := h.app.GetSubscriptionMgr()
+	err = subMgr.AddMulti(ctx, []string{
+		userTopic,
+		sessionTopic,
+	}, c)
 
 	if err != nil {
 		return gateway.NewAuthError(err)
@@ -155,24 +169,39 @@ func (h *Handlers) HandleDisconnect(data *resource.Packet, c *client.Client) gat
 
 	log.Debugf("OnDisconnect: %v", c.Session.Id)
 
-	session := c.Session
+	s := c.Session
 
 	ctx := h.app.Context()
 	rdb := h.app.GetRedis()
 	pipe := rdb.Pipeline()
 
-	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, session.UserId)
-	sessionKey := fmt.Sprintf(constant.SessionFmt, session.Id)
+	userSessionsKey := fmt.Sprintf(constant.UserSessionsFmt, s.UserId)
+	sessionKey := fmt.Sprintf(constant.SessionFmt, s.Id)
 
-	pipe.SRem(ctx, userSessionsKey, session.Id)
+	pipe.SRem(ctx, userSessionsKey, s.Id)
 	pipe.Expire(ctx, sessionKey, client.SessionExpiryDuration)
 
 	_, err := pipe.Exec(ctx)
 
 	if err != nil {
 		log.WithError(err).
-			WithField("session_id", session.Id).
+			WithField("session_id", s.Id).
 			Error("Failed to destroy session")
+	}
+
+	userTopic := dispatcher.NewUserTarget(s.UserId).Build()
+	sessionTopic := dispatcher.NewSessionTarget(s.Id).Build()
+
+	subMgr := h.app.GetSubscriptionMgr()
+	err = subMgr.RemoveMulti(ctx, []string{
+		userTopic,
+		sessionTopic,
+	}, c)
+
+	if err != nil {
+		log.WithError(err).
+			WithField("session_id", s.Id).
+			Error("Failed to cleanup disconnected session")
 	}
 
 	return nil

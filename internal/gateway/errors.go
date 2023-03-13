@@ -21,6 +21,7 @@ const (
 	ErrorAddClient
 	ErrorRemoveClient
 	ErrorParse
+	ErrorSerialize
 )
 
 var errorMessages = map[ErrorCode]string{
@@ -35,6 +36,7 @@ var errorMessages = map[ErrorCode]string{
 	ErrorAddClient: "Failed to add client to room",
 	ErrorRemoveClient: "Failed to remove client from room",
 	ErrorParse: "Failed to parse data",
+	ErrorSerialize: "Failed to serialize data",
 }
 
 type Error interface {

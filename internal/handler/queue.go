@@ -9,11 +9,13 @@ import (
 	"github.com/sakuraapp/gateway/pkg/util"
 	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	"github.com/sakuraapp/shared/pkg/resource/permission"
 	log "github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack/v5"
 	"io"
 	"net/url"
 )
@@ -51,9 +53,9 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gatew
 
 	itemInfo.Url = rawUrl
 	item := resource.MediaItem{
-		Id: uuid.NewString(),
-		Author: c.Session.UserId,
-		Type: resource.MediaItemTypeNormal,
+		Id:            uuid.NewString(),
+		Author:        c.Session.UserId,
+		Type:          resource.MediaItemTypeNormal,
 		MediaItemInfo: itemInfo,
 	}
 
@@ -77,9 +79,15 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gatew
 
 	if lenCmd.Val() > 0 || currentCmd.Val() == 1 {
 		// something else is already playing
+		bytes, err := msgpack.Marshal(item)
+
+		if err != nil {
+			return gateway.NewError(gateway.ErrorSerialize, err)
+		}
+
 		pipe = rdb.Pipeline()
 
-		pipe.HSet(ctx, queueItemsKey, item.Id, item)
+		pipe.HSet(ctx, queueItemsKey, item.Id, bytes)
 		pipe.RPush(ctx, queueKey, item.Id)
 
 		_, err = pipe.Exec(ctx)
@@ -88,11 +96,8 @@ func (h *Handlers) HandleQueueAdd(data *resource.Packet, c *client.Client) gatew
 			return gateway.NewError(gateway.ErrorRedis, err)
 		}
 
-		queueAddMessage := pubsub.Message{
-			Data: resource.BuildPacket(opcode.QueueAdd, item),
-		}
-
-		err = h.app.DispatchRoom(roomId, &queueAddMessage)
+		packet := resource.BuildPacket(opcode.QueueAdd, item)
+		err = h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), pubsub.NewMessage(packet))
 
 		if err != nil {
 			return gateway.NewError(gateway.ErrorDispatch, err)
@@ -125,7 +130,7 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) ga
 
 	if !c.Session.HasPermission(permission.QUEUE_EDIT) {
 		var item resource.MediaItem
-		
+
 		err := rdb.HGet(ctx, queueItemsKey, id).Scan(&item)
 
 		if err != nil {
@@ -151,11 +156,8 @@ func (h *Handlers) HandleQueueRemove(data *resource.Packet, c *client.Client) ga
 		return gateway.NewError(gateway.ErrorRedis, err)
 	}
 
-	queueRemoveMessage := pubsub.Message{
-		Data: resource.BuildPacket(opcode.QueueRemove, id),
-	}
-
-	err = h.app.DispatchRoom(roomId, &queueRemoveMessage)
+	packet := resource.BuildPacket(opcode.QueueRemove, id)
+	err = h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), pubsub.NewMessage(packet))
 
 	if err != nil {
 		return gateway.NewError(gateway.ErrorDispatch, err)
@@ -180,7 +182,7 @@ func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource.
 	pipe := rdb.Pipeline()
 
 	getCmd := pipe.HGet(ctx, itemsKey, id) // get the item info of the popped id
-	pipe.HDel(ctx, itemsKey, id) // delete the item's info
+	pipe.HDel(ctx, itemsKey, id)           // delete the item's info
 
 	_, err = pipe.Exec(ctx)
 
@@ -190,7 +192,8 @@ func (h *Handlers) popItem(ctx context.Context, roomId model.RoomId) (*resource.
 
 	var item resource.MediaItem
 
-	err = getCmd.Scan(&item)
+	bytes, _ := getCmd.Bytes()
+	err = msgpack.Unmarshal(bytes, &item)
 
 	if err != nil {
 		return nil, err

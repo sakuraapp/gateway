@@ -21,6 +21,7 @@ import (
 	gatewaypb "github.com/sakuraapp/protobuf/gateway"
 	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/crypto"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 	sharedUtil "github.com/sakuraapp/shared/pkg/util"
@@ -36,26 +37,26 @@ type Server struct {
 	gatewaypb.UnimplementedGatewayServiceServer
 	config.Config
 	pubsub.Dispatcher
-	cors *cors.Cors
-	taskPool *taskpool.MixedPool
-	server *nbhttp.Server
-	ctx context.Context
-	ctxCancel context.CancelFunc
-	crawler *util.Crawler
+	cors            *cors.Cors
+	taskPool        *taskpool.MixedPool
+	server          *nbhttp.Server
+	ctx             context.Context
+	ctxCancel       context.CancelFunc
+	crawler         *util.Crawler
 	resourceBuilder *resource.Builder
-	jwt *util.JWT
-	db *pg.DB
-	rdb *redis.Client
-	repos *repository.Repositories
-	handlers *handler.Handlers
-	cache *cache.Cache
-	clientMgr *manager.ClientManager
-	sessionMgr *manager.SessionManager
-	handlerMgr *manager.HandlerManager
-	roomMgr *manager.RoomManager
-	subscriptionMgr *manager.SubscriptionManager
-	pubsub *redis.PubSub
-	grpc *grpc.Server
+	jwt             *util.JWT
+	db              *pg.DB
+	rdb             *redis.Client
+	repos           *repository.Repositories
+	handlers        *handler.Handlers
+	cache           *cache.Cache
+	clientMgr       *manager.ClientManager
+	sessionMgr      *manager.SessionManager
+	handlerMgr      *manager.HandlerManager
+	roomMgr         *manager.RoomManager
+	subscriptionMgr *dispatcher.SubscriptionManager
+	pubsub          *redis.PubSub
+	grpc            *grpc.Server
 }
 
 func New(conf config.Config) *Server {
@@ -69,7 +70,7 @@ func New(conf config.Config) *Server {
 	})
 
 	dbOpts := pg.Options{
-		User: conf.DatabaseUser,
+		User:     conf.DatabaseUser,
 		Password: conf.DatabasePassword,
 		Database: conf.DatabaseName,
 	}
@@ -90,9 +91,9 @@ func New(conf config.Config) *Server {
 	}
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr: conf.RedisAddr,
+		Addr:     conf.RedisAddr,
 		Password: conf.RedisPassword,
-		DB: conf.RedisDatabase,
+		DB:       conf.RedisDatabase,
 	})
 
 	myCache := cache.New(&cache.Options{
@@ -110,9 +111,9 @@ func New(conf config.Config) *Server {
 	}
 
 	s3Config := &sharedUtil.S3Config{
-		Bucket: conf.S3Bucket,
-		Region: conf.S3Region,
-		Endpoint: conf.S3Endpoint,
+		Bucket:         conf.S3Bucket,
+		Region:         conf.S3Region,
+		Endpoint:       conf.S3Endpoint,
 		ForcePathStyle: conf.S3ForcePathStyle,
 	}
 	s3BaseUrl := sharedUtil.GetS3BaseUrl(s3Config)
@@ -128,9 +129,9 @@ func New(conf config.Config) *Server {
 
 	addr := fmt.Sprintf("0.0.0.0:%v", conf.Port)
 	serverConfig := nbhttp.Config{
-		Network: "tcp",
-		Addrs: []string{addr},
-		MaxLoad: 1000000,
+		Network:                 "tcp",
+		Addrs:                   []string{addr},
+		MaxLoad:                 1000000,
 		ReleaseWebsocketPayload: true,
 	}
 
@@ -152,10 +153,10 @@ func New(conf config.Config) *Server {
 		handlerMgr:      manager.NewHandlerManager(),
 	}
 
-	s.Dispatcher = pubsub.NewRedisDispatcher(s.ctx, &GatewayDispatcher{server: s}, s.NodeId(), s.rdb)
+	s.Dispatcher = pubsub.NewRedisDispatcher(s.ctx, s.NodeId(), s.rdb)
 	s.initPubsub()
 
-	s.subscriptionMgr = manager.NewSubscriptionManager(s.ctx, s.pubsub)
+	s.subscriptionMgr = dispatcher.NewSubscriptionManager(s.pubsub)
 	s.roomMgr = manager.NewRoomManager(s.subscriptionMgr)
 
 	s.handlers = handler.Init(s)
@@ -226,6 +227,10 @@ func (s *Server) GetSessionMgr() *manager.SessionManager {
 
 func (s *Server) GetRoomMgr() *manager.RoomManager {
 	return s.roomMgr
+}
+
+func (s *Server) GetSubscriptionMgr() *dispatcher.SubscriptionManager {
+	return s.subscriptionMgr
 }
 
 func (s *Server) Start() error {
@@ -338,7 +343,7 @@ func (s *Server) onConnection(w http.ResponseWriter, r *http.Request) {
 			s.sessionMgr.Remove(c.Session)
 
 			disconnectPacket := resource.BuildPacket(opcode.Disconnect, nil)
-			s.handlerMgr.Handle(disconnectPacket, c)
+			s.handlerMgr.Handle(&disconnectPacket, c)
 		}
 	})
 }

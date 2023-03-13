@@ -3,7 +3,7 @@ package manager
 import (
 	"github.com/sakuraapp/gateway/internal/client"
 	"github.com/sakuraapp/gateway/internal/gateway"
-	"github.com/sakuraapp/pubsub"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
 )
@@ -16,7 +16,7 @@ type HandlerFunc func(packet *resource.Packet, client *client.Client) gateway.Er
 type HandlerList []HandlerFunc
 type HandlerMap map[opcode.Opcode]HandlerList
 
-type ServerHandlerFunc func(packet *pubsub.Message)
+type ServerHandlerFunc func(packet *dispatcher.Message)
 type ServerHandlerList []ServerHandlerFunc
 type ServerHandlerMap map[opcode.Opcode]ServerHandlerList
 
@@ -32,7 +32,7 @@ func NewHandlerManager() *HandlerManager {
 	}
 }
 
-func (h *HandlerManager) Register(op opcode.Opcode, fn HandlerFunc)  {
+func (h *HandlerManager) Register(op opcode.Opcode, fn HandlerFunc) {
 	if h.handlers[op] == nil {
 		h.handlers[op] = HandlerList{fn}
 	} else {
@@ -61,7 +61,7 @@ func (h *HandlerManager) Handle(packet *resource.Packet, client *client.Client) 
 	}
 }
 
-func (h *HandlerManager) RegisterServer(op opcode.Opcode, fn ServerHandlerFunc)  {
+func (h *HandlerManager) RegisterServer(op opcode.Opcode, fn ServerHandlerFunc) {
 	if h.serverHandlers[op] == nil {
 		h.serverHandlers[op] = ServerHandlerList{fn}
 	} else {
@@ -69,8 +69,8 @@ func (h *HandlerManager) RegisterServer(op opcode.Opcode, fn ServerHandlerFunc) 
 	}
 }
 
-func (h *HandlerManager) HandleServer(msg *pubsub.Message) {
-	list := h.serverHandlers[msg.Data.Opcode]
+func (h *HandlerManager) HandleServer(msg *dispatcher.Message) {
+	list := h.serverHandlers[msg.Payload.Opcode]
 
 	if list != nil {
 		for _, handler := range list {

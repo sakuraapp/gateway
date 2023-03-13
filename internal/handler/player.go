@@ -8,6 +8,7 @@ import (
 	"github.com/sakuraapp/gateway/internal/gateway"
 	"github.com/sakuraapp/pubsub"
 	"github.com/sakuraapp/shared/pkg/constant"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/model"
 	"github.com/sakuraapp/shared/pkg/resource"
 	"github.com/sakuraapp/shared/pkg/resource/opcode"
@@ -16,10 +17,10 @@ import (
 	"time"
 )
 
-func buildState(state *resource.PlayerState) *resource.Packet {
+func buildState(state *resource.PlayerState) resource.Packet {
 	data := map[string]interface{}{
-		"playing": state.IsPlaying,
-		"currentTime": state.CurrentTime,
+		"playing":       state.IsPlaying,
+		"currentTime":   state.CurrentTime,
 		"playbackStart": state.PlaybackStart,
 	}
 
@@ -41,22 +42,18 @@ func (h *Handlers) HandleSetPlayerState(data *resource.Packet, c *client.Client)
 
 		m := data.DataMap()
 		state := resource.PlayerState{
-			IsPlaying: m["playing"].(bool),
-			CurrentTime: m["currentTime"].(float64),
+			IsPlaying:     m["playing"].(bool),
+			CurrentTime:   m["currentTime"].(float64),
 			PlaybackStart: t,
-		}
-
-		msg := pubsub.Message{
-			Data: resource.BuildPacket(opcode.PlayerState, state),
-			Target: &pubsub.MessageTarget{
-				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
-			},
 		}
 
 		roomId := c.Session.RoomId
 		stateKey := fmt.Sprintf(constant.RoomStateFmt, roomId)
 
-		err := h.app.DispatchRoom(roomId, &msg)
+		err := h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), &dispatcher.Message{
+			Payload: resource.BuildPacket(opcode.PlayerState, state),
+			Filters: dispatcher.NewFilterMap().WithIgnoredSession(c.Session.Id),
+		})
 
 		if err != nil {
 			return gateway.NewError(gateway.ErrorDispatch, err)
@@ -86,17 +83,14 @@ func (h *Handlers) HandleSeek(data *resource.Packet, c *client.Client) gateway.E
 		rdb := h.app.GetRedis()
 
 		currentTime := data.Data.(float64)
-		msg := pubsub.Message{
-			Data: resource.BuildPacket(opcode.Seek, currentTime),
-			Target: &pubsub.MessageTarget{
-				IgnoredSessionIds: map[string]bool{c.Session.Id: true},
-			},
-		}
 
 		roomId := c.Session.RoomId
 		stateKey := fmt.Sprintf(constant.RoomStateFmt, roomId)
 
-		err := h.app.DispatchRoom(roomId, &msg)
+		err := h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), &dispatcher.Message{
+			Payload: resource.BuildPacket(opcode.Seek, currentTime),
+			Filters: dispatcher.NewFilterMap().WithIgnoredSession(c.Session.Id),
+		})
 
 		if err != nil {
 			return gateway.NewError(gateway.ErrorDispatch, err)
@@ -172,7 +166,7 @@ func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) gatew
 		ackCount := ackCountCmd.Val()
 		totalCount := totalCountCmd.Val()
 
-		if ackCount >= totalCount / 2 {
+		if ackCount >= totalCount/2 {
 			err = h.nextItem(h.app.Context(), roomId)
 
 			if err != nil {
@@ -183,7 +177,6 @@ func (h *Handlers) HandleVideoEnd(data *resource.Packet, c *client.Client) gatew
 
 	return nil
 }
-
 
 func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	item, err := h.popItem(ctx, roomId)
@@ -197,11 +190,8 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 	}
 
 	if item != nil {
-		queueRemoveMsg := pubsub.Message{
-			Data: resource.BuildPacket(opcode.QueueRemove, item.Id),
-		}
-
-		err = h.app.DispatchRoom(roomId, &queueRemoveMsg)
+		packet := resource.BuildPacket(opcode.QueueRemove, item.Id)
+		err = h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), dispatcher.NewMessage(packet))
 
 		if err != nil {
 			return err
@@ -223,16 +213,13 @@ func (h *Handlers) nextItem(ctx context.Context, roomId model.RoomId) error {
 
 func (h *Handlers) SetCurrentItem(ctx context.Context, roomId model.RoomId, item *resource.MediaItem) error {
 	state := resource.PlayerState{
-		IsPlaying: false,
-		CurrentTime: 0,
+		IsPlaying:     false,
+		CurrentTime:   0,
 		PlaybackStart: time.Now(),
 	}
 
-	setVideoMsg := pubsub.Message{
-		Data: resource.BuildPacket(opcode.VideoSet, item),
-	}
-
-	err := h.app.DispatchRoom(roomId, &setVideoMsg)
+	packet := resource.BuildPacket(opcode.VideoSet, item)
+	err := h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), pubsub.NewMessage(packet))
 
 	if err != nil {
 		return err
@@ -255,7 +242,7 @@ func (h *Handlers) SetCurrentItem(ctx context.Context, roomId model.RoomId, item
 	if item != nil {
 		pipe.HSet(ctx, currentItemKey,
 			"id", item.Id,
-			"type", item.Type,
+			"type", (int)(item.Type),
 			"url", item.Url,
 			"title", item.Title,
 			"icon", item.Icon,
@@ -299,9 +286,9 @@ func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource
 	}
 
 	state := resource.PlayerState{
-		IsPlaying: vals["playing"] == "1",
+		IsPlaying:     vals["playing"] == "1",
 		PlaybackStart: playbackStart,
-		CurrentTime: currentTime,
+		CurrentTime:   currentTime,
 	}
 
 	if state.IsPlaying {
@@ -313,11 +300,7 @@ func (h *Handlers) getState(ctx context.Context, roomId model.RoomId) (*resource
 }
 
 func (h *Handlers) dispatchState(roomId model.RoomId, state *resource.PlayerState) error {
-	stateMsg := pubsub.Message{
-		Data: buildState(state),
-	}
-
-	return h.app.DispatchRoom(roomId, &stateMsg)
+	return h.app.DispatchTo(dispatcher.NewRoomTarget(roomId), dispatcher.NewMessage(buildState(state)))
 }
 
 func (h *Handlers) sendState(ctx context.Context, roomId model.RoomId) error {

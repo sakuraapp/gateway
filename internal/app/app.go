@@ -10,6 +10,7 @@ import (
 	"github.com/sakuraapp/gateway/internal/repository"
 	"github.com/sakuraapp/gateway/pkg/util"
 	"github.com/sakuraapp/pubsub"
+	dispatcher "github.com/sakuraapp/shared/pkg/dispatcher/gateway"
 	"github.com/sakuraapp/shared/pkg/resource"
 )
 
@@ -31,4 +32,5 @@ type App interface {
 	GetClientMgr() *manager.ClientManager
 	GetSessionMgr() *manager.SessionManager
 	GetRoomMgr() *manager.RoomManager
+	GetSubscriptionMgr() *dispatcher.SubscriptionManager
 }
